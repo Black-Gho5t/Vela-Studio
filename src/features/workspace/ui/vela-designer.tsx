@@ -191,7 +191,7 @@ function DroppableWidget({
       
       {node.type === "ElevatedButton" && (
         <button className="px-4 py-2 rounded shadow-sm text-white font-medium transition-transform active:scale-95" style={{ backgroundColor: getValidColor(node.props.color, "#2196F3") }}>
-          {node.props.childText || node.children?.map(c => c.props.data).join("") || "Button"}
+          {node.props.text || node.props.childText || node.children?.map(c => c.props.data).join("") || "Button"}
         </button>
       )}
 
@@ -417,60 +417,79 @@ export function VelaDesigner({ code, filePath }: { code?: string; filePath?: str
                 </div>
                 
                 <div className="space-y-3">
-                  {Object.entries(selectedNode?.props || {}).map(([key, value]) => (
-                    <div key={key} className="space-y-1.5">
-                      <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{key}</label>
-                      <input 
-                        type="text" 
-                        value={String(value)}
-                        onChange={(e) => {
-                          if (!selectedId) return;
-                          
-                          // 1. Optimistic UI update
-                          const newTree = JSON.parse(JSON.stringify(tree)); // Deep clone
-                          const nodeToUpdate = findNode(newTree, selectedId);
-                          if (nodeToUpdate) {
-                            nodeToUpdate.props[key] = e.target.value;
-                            setTree(newTree);
-                          }
-                          
-                          // 2. Call Rust engine to edit code natively (Debounced)
-                          if (filePath) {
-                            if (propertyUpdateTimeoutRef.current) clearTimeout(propertyUpdateTimeoutRef.current);
-                            propertyUpdateTimeoutRef.current = setTimeout(() => {
-                              invoke("update_widget_property", {
-                                filePath,
-                                nodeId: selectedId,
-                                propertyKey: key,
-                                propertyValue: e.target.value
-                              }).then(() => {
-                                // Sync back to editor
-                                import("@/features/workspace/api/workspace.api").then(({ workspaceApi }) => {
-                                   workspaceApi.readFile(filePath).then((content) => {
-                                     import("@/features/workspace/model/workspace.store").then(({ useWorkspaceStore }) => {
-                                       const state = useWorkspaceStore.getState();
-                                       if (state.activeTabId) {
-                                         state.updateTabContent(state.activeTabId, content);
-                                         state.markTabUnmodified(state.activeTabId);
-                                       }
-                                     });
-                                   });
-                                });
+                  {(() => {
+                    const type = selectedNode?.type || "";
+                    const currentProps = selectedNode?.props || {};
+                    const schemas: Record<string, string[]> = {
+                      "Text": ["data", "color", "fontSize"],
+                      "ElevatedButton": ["text", "onPressed", "color", "estilo", "tipografia", "tamanio_de_texto"],
+                      "Scaffold": ["backgroundColor"],
+                      "AppBar": ["title", "backgroundColor"],
+                      "Column": ["mainAxisAlignment", "crossAxisAlignment"],
+                      "Row": ["mainAxisAlignment", "crossAxisAlignment"],
+                      "Container": ["backgroundColor", "padding"],
+                    };
+                    const schema = schemas[type] || [];
+                    const allKeys = Array.from(new Set([...schema, ...Object.keys(currentProps)]));
+                    
+                    if (allKeys.length === 0) {
+                      return <p className="text-xs text-muted-foreground italic">No basic properties extracted for this widget yet.</p>;
+                    }
 
-                                // Fire hot reload automatically
-                                invoke("write_terminal", { data: "r" }).catch(console.error);
-                              }).catch(err => console.error("Failed to update property:", err));
-                            }, 500);
-                          }
-                        }}
-                        className="flex h-8 w-full rounded border border-border/50 bg-background items-center px-2 shadow-sm text-xs font-mono focus:ring-1 focus:ring-sky-500 focus:outline-none" 
-                      />
-                    </div>
-                  ))}
-                  
-                  {Object.keys(selectedNode?.props || {}).length === 0 && (
-                    <p className="text-xs text-muted-foreground italic">No basic properties extracted for this widget yet.</p>
-                  )}
+                    return allKeys.map((key) => {
+                      const value = currentProps[key] !== undefined ? currentProps[key] : "";
+                      return (
+                        <div key={key} className="space-y-1.5">
+                          <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{key}</label>
+                          <input 
+                            type="text" 
+                            value={String(value)}
+                            onChange={(e) => {
+                              if (!selectedId) return;
+                              
+                              // 1. Optimistic UI update
+                              const newTree = JSON.parse(JSON.stringify(tree)); // Deep clone
+                              const nodeToUpdate = findNode(newTree, selectedId);
+                              if (nodeToUpdate) {
+                                nodeToUpdate.props[key] = e.target.value;
+                                setTree(newTree);
+                              }
+                              
+                              // 2. Call Rust engine to edit code natively (Debounced)
+                              if (filePath) {
+                                if (propertyUpdateTimeoutRef.current) clearTimeout(propertyUpdateTimeoutRef.current);
+                                propertyUpdateTimeoutRef.current = setTimeout(() => {
+                                  invoke("update_widget_property", {
+                                    filePath,
+                                    nodeId: selectedId,
+                                    propertyKey: key,
+                                    propertyValue: e.target.value
+                                  }).then(() => {
+                                    // Sync back to editor
+                                    import("@/features/workspace/api/workspace.api").then(({ workspaceApi }) => {
+                                       workspaceApi.readFile(filePath).then((content) => {
+                                         import("@/features/workspace/model/workspace.store").then(({ useWorkspaceStore }) => {
+                                           const state = useWorkspaceStore.getState();
+                                           if (state.activeTabId) {
+                                             state.updateTabContent(state.activeTabId, content);
+                                             state.markTabUnmodified(state.activeTabId);
+                                           }
+                                         });
+                                       });
+                                    });
+
+                                    // Fire hot reload automatically
+                                    invoke("write_terminal", { data: "r" }).catch(console.error);
+                                  }).catch(err => console.error("Failed to update property:", err));
+                                }, 500);
+                              }
+                            }}
+                            className="flex h-8 w-full rounded border border-border/50 bg-background items-center px-2 shadow-sm text-xs font-mono focus:ring-1 focus:ring-sky-500 focus:outline-none" 
+                          />
+                        </div>
+                      );
+                    });
+                  })()}
 
                   <p className="text-[10px] text-muted-foreground/60 italic mt-4">
                     Note: Complete AST bidirectional sync (Fase 3) will auto-generate code from this tree.

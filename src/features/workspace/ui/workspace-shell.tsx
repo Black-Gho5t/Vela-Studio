@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { ResizableSidebar, ResizableBottomPanel } from "@/components/ui/ide-resizable";
 
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 
 import { WorkspaceOverview } from "./workspace-overview";
 import { WorkspacePrimaryRail } from "./workspace-primary-rail";
@@ -121,12 +122,23 @@ export function WorkspaceShell() {
             {bottomPanel && (
               <ResizableBottomPanel id="terminal" defaultHeight={250}>
                 <div className="flex flex-col h-full bg-background border-t border-border">
-                  <div className="flex h-9 items-center px-3 shrink-0 border-b border-border">
-                    <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
-                      Terminal
-                    </span>
+                  <div className="flex h-9 items-center px-1 shrink-0 border-b border-border gap-1 overflow-x-auto no-scrollbar">
+                    {["PROBLEMS", "OUTPUT", "DEBUG CONSOLE", "TERMINAL"].map((tab) => (
+                      <button
+                        key={tab}
+                        className={cn(
+                          "px-3 py-1 text-[10px] font-medium uppercase tracking-[0.1em] transition-colors whitespace-nowrap outline-none",
+                          tab === "TERMINAL"
+                            ? "text-foreground border-b border-foreground"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {tab}
+                      </button>
+                    ))}
                   </div>
                   <div className="flex-1 min-h-0 h-full w-full">
+                    {/* Hardcoded to WorkspaceTerminal for now as requested */}
                     <WorkspaceTerminal />
                   </div>
                 </div>

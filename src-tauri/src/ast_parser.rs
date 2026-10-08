@@ -92,10 +92,13 @@ fn walk_node(node: Node, source: &[u8]) -> Option<WidgetNode> {
                                     }
                                 }
                             }
-                        } else if arg.kind() == "string_literal" && text == "Text" {
-                            if let Ok(str_val) = std::str::from_utf8(&source[arg.start_byte()..arg.end_byte()]) {
-                                let clean_str = str_val.trim_matches(|c| c == '"' || c == '\'');
-                                props.insert("data".to_string(), serde_json::Value::String(clean_str.to_string()));
+                        } else if text == "Text" {
+                            let arg_kind = arg.kind();
+                            if arg_kind != "(" && arg_kind != ")" && arg_kind != "," && !props.contains_key("data") {
+                                if let Ok(str_val) = std::str::from_utf8(&source[arg.start_byte()..arg.end_byte()]) {
+                                    let clean_str = str_val.trim_matches(|c| c == '"' || c == '\'');
+                                    props.insert("data".to_string(), serde_json::Value::String(clean_str.to_string()));
+                                }
                             }
                         } else {
                             // If it's a positional child widget
@@ -333,7 +336,7 @@ pub fn update_widget_property(file_path: &str, node_id: &str, prop_key: &str, pr
         new_source.push_str(&source_code[..target_replace_start]);
         
         // Wrap in quotes if it was a string literal originally, or if it's data
-        if prop_key == "data" || prop_key == "title" || prop_key == "childText" {
+        if prop_key == "data" || prop_key == "title" || prop_key == "childText" || prop_key == "text" || prop_key == "tipografia" || prop_key == "color" || prop_key == "estilo" {
             new_source.push_str(&format!("'{}'", prop_val));
         } else {
             new_source.push_str(prop_val);
@@ -343,7 +346,24 @@ pub fn update_widget_property(file_path: &str, node_id: &str, prop_key: &str, pr
         
         fs::write(file_path, new_source).map_err(|e| format!("Failed to save dart file: {}", e))?;
         return Ok(());
+    } else {
+        // Insert new property before the closing parenthesis of arguments!
+        let insert_idx = args_node.end_byte() - 1;
+        
+        let mut new_source = String::new();
+        new_source.push_str(&source_code[..insert_idx]);
+        
+        if prop_key == "data" {
+            new_source.push_str(&format!("'{}', ", prop_val));
+        } else if prop_key == "title" || prop_key == "childText" || prop_key == "text" || prop_key == "tipografia" || prop_key == "color" || prop_key == "estilo" {
+            new_source.push_str(&format!(", {}: '{}'", prop_key, prop_val));
+        } else {
+            new_source.push_str(&format!(", {}: {}", prop_key, prop_val));
+        }
+        
+        new_source.push_str(&source_code[insert_idx..]);
+        
+        fs::write(file_path, new_source).map_err(|e| format!("Failed to save dart file: {}", e))?;
+        return Ok(());
     }
-    
-    Err("Property not found in AST to update".into())
 }
