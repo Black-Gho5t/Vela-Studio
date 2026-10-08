@@ -390,11 +390,8 @@ export function VelaDesigner({ code, filePath }: { code?: string; filePath?: str
               <div className="w-12 h-1.5 bg-black rounded-full" />
             </div>
             
-            <div className="w-full h-full pt-6 bg-white overflow-y-auto overflow-x-hidden relative">
+            <div className="w-full h-full pt-6 bg-white overflow-y-auto overflow-x-hidden">
               {renderWidget(tree)}
-              <pre className="absolute top-0 left-0 right-0 bg-black/80 text-green-400 p-4 text-xs z-[9999] pointer-events-none break-words whitespace-pre-wrap">
-                {JSON.stringify(tree, null, 2)}
-              </pre>
             </div>
           </div>
         </div>
