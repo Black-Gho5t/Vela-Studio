@@ -96,8 +96,15 @@ function addNodeToTree(tree: WidgetNode, parentId: string, newNode: WidgetNode):
       ...tree,
       children: tree.children.map(child => addNodeToTree(child, parentId, newNode))
     };
-  }
+}
   return tree;
+}
+
+function getValidColor(colorStr?: any, defaultColor: string = "transparent") {
+  if (!colorStr) return defaultColor;
+  const str = String(colorStr);
+  if (str.includes("Theme.of") || str.includes("Colors.") || str.includes("(")) return defaultColor;
+  return str;
 }
 
 // ── Draggable & Droppable Wrappers ──────────────────────────────────────────
@@ -152,11 +159,6 @@ function DroppableWidget({
     onSelect(node.id);
   };
 
-  const getValidColor = (colorStr?: string, defaultColor: string = "transparent") => {
-    if (!colorStr) return defaultColor;
-    if (colorStr.includes("Theme.of") || colorStr.includes("Colors.") || colorStr.includes("(")) return defaultColor;
-    return colorStr;
-  };
 
   return (
     <div 
@@ -222,8 +224,8 @@ export function VelaDesigner({ code, filePath }: { code?: string; filePath?: str
         const availableH = height - 64;
         const scaleW = availableW / 375;
         const scaleH = availableH / 812;
-        // Scale down to fit, but don't scale up past 1
-        setScale(Math.min(scaleW, scaleH, 1));
+        // Scale to fit available space responsively
+        setScale(Math.min(scaleW, scaleH));
       }
     });
     observer.observe(containerRef.current);
@@ -299,7 +301,8 @@ export function VelaDesigner({ code, filePath }: { code?: string; filePath?: str
         invoke("inject_widget", {
           filePath,
           parentId: over.id as string,
-          newWidgetType: widgetType
+          newWidgetType: widgetType,
+          currentSource: code
         }).then(() => {
           // Sync back to editor
           import("@/features/workspace/api/workspace.api").then(({ workspaceApi }) => {
@@ -390,7 +393,7 @@ export function VelaDesigner({ code, filePath }: { code?: string; filePath?: str
               <div className="w-12 h-1.5 bg-black rounded-full" />
             </div>
             
-            <div className="w-full h-full pt-6 bg-white overflow-y-auto overflow-x-hidden">
+            <div className="w-full h-full pt-6 bg-white overflow-y-auto overflow-x-hidden flex flex-col">
               {renderWidget(tree)}
             </div>
           </div>
@@ -422,7 +425,7 @@ export function VelaDesigner({ code, filePath }: { code?: string; filePath?: str
                     const currentProps = selectedNode?.props || {};
                     const schemas: Record<string, string[]> = {
                       "Text": ["data", "color", "fontSize"],
-                      "ElevatedButton": ["text", "onPressed", "color", "estilo", "tipografia", "tamanio_de_texto"],
+                      "ElevatedButton": ["childText", "color", "onPressed", "estilo", "tipografia", "tamanio_de_texto"],
                       "Scaffold": ["backgroundColor"],
                       "AppBar": ["title", "backgroundColor"],
                       "Column": ["mainAxisAlignment", "crossAxisAlignment"],
@@ -441,51 +444,86 @@ export function VelaDesigner({ code, filePath }: { code?: string; filePath?: str
                       return (
                         <div key={key} className="space-y-1.5">
                           <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{key}</label>
-                          <input 
-                            type="text" 
-                            value={String(value)}
-                            onChange={(e) => {
-                              if (!selectedId) return;
-                              
-                              // 1. Optimistic UI update
-                              const newTree = JSON.parse(JSON.stringify(tree)); // Deep clone
-                              const nodeToUpdate = findNode(newTree, selectedId);
-                              if (nodeToUpdate) {
-                                nodeToUpdate.props[key] = e.target.value;
-                                setTree(newTree);
-                              }
-                              
-                              // 2. Call Rust engine to edit code natively (Debounced)
-                              if (filePath) {
-                                if (propertyUpdateTimeoutRef.current) clearTimeout(propertyUpdateTimeoutRef.current);
-                                propertyUpdateTimeoutRef.current = setTimeout(() => {
-                                  invoke("update_widget_property", {
-                                    filePath,
-                                    nodeId: selectedId,
-                                    propertyKey: key,
-                                    propertyValue: e.target.value
-                                  }).then(() => {
-                                    // Sync back to editor
-                                    import("@/features/workspace/api/workspace.api").then(({ workspaceApi }) => {
-                                       workspaceApi.readFile(filePath).then((content) => {
-                                         import("@/features/workspace/model/workspace.store").then(({ useWorkspaceStore }) => {
-                                           const state = useWorkspaceStore.getState();
-                                           if (state.activeTabId) {
-                                             state.updateTabContent(state.activeTabId, content);
-                                             state.markTabUnmodified(state.activeTabId);
-                                           }
+                          <div className="flex items-center gap-2">
+                            {key.toLowerCase().includes("color") && (
+                              <input 
+                                type="color"
+                                value={getValidColor(String(value), "#000000")}
+                                onChange={(e) => {
+                                  // Keep the color picker in sync, but wait to update tree until text changes?
+                                  // Or just update directly:
+                                  const eTarget = e.target as HTMLInputElement;
+                                  // The color picker returns #RRGGBB. Convert to Dart Color(0xFFRRGGBB)
+                                  const dartColor = `Color(0xFF${hex.replace('#', '')})`;
+                                  
+                                  const newTree = JSON.parse(JSON.stringify(tree));
+                                  const nodeToUpdate = findNode(newTree, selectedId);
+                                  if (nodeToUpdate) {
+                                    nodeToUpdate.props[key] = dartColor;
+                                    setTree(newTree);
+                                  }
+                                  
+                                  if (filePath) {
+                                    if (propertyUpdateTimeoutRef.current) clearTimeout(propertyUpdateTimeoutRef.current);
+                                    propertyUpdateTimeoutRef.current = setTimeout(() => {
+                                      invoke("update_widget_property", {
+                                        filePath, nodeId: selectedId, propertyKey: key, propertyValue: dartColor, currentSource: code
+                                      }).then(() => {
+                                        invoke("write_terminal", { data: "r" }).catch(console.error);
+                                      });
+                                    }, 500);
+                                  }
+                                }}
+                                className="size-6 rounded border border-border/50 cursor-pointer p-0 overflow-hidden shrink-0"
+                              />
+                            )}
+                            <input 
+                              type="text" 
+                              value={String(value)}
+                              onChange={(e) => {
+                                if (!selectedId) return;
+                                
+                                // 1. Optimistic UI update
+                                const newTree = JSON.parse(JSON.stringify(tree)); // Deep clone
+                                const nodeToUpdate = findNode(newTree, selectedId);
+                                if (nodeToUpdate) {
+                                  nodeToUpdate.props[key] = e.target.value;
+                                  setTree(newTree);
+                                }
+                                
+                                // 2. Call Rust engine to edit code natively (Debounced)
+                                if (filePath) {
+                                  if (propertyUpdateTimeoutRef.current) clearTimeout(propertyUpdateTimeoutRef.current);
+                                  propertyUpdateTimeoutRef.current = setTimeout(() => {
+                                    invoke("update_widget_property", {
+                                      filePath,
+                                      nodeId: selectedId,
+                                      propertyKey: key,
+                                      propertyValue: e.target.value,
+                                      currentSource: code
+                                    }).then(() => {
+                                      // Sync back to editor
+                                      import("@/features/workspace/api/workspace.api").then(({ workspaceApi }) => {
+                                         workspaceApi.readFile(filePath).then((content) => {
+                                           import("@/features/workspace/model/workspace.store").then(({ useWorkspaceStore }) => {
+                                             const state = useWorkspaceStore.getState();
+                                             if (state.activeTabId) {
+                                               state.updateTabContent(state.activeTabId, content);
+                                               state.markTabUnmodified(state.activeTabId);
+                                             }
+                                           });
                                          });
-                                       });
-                                    });
-
-                                    // Fire hot reload automatically
-                                    invoke("write_terminal", { data: "r" }).catch(console.error);
-                                  }).catch(err => console.error("Failed to update property:", err));
-                                }, 500);
-                              }
-                            }}
-                            className="flex h-8 w-full rounded border border-border/50 bg-background items-center px-2 shadow-sm text-xs font-mono focus:ring-1 focus:ring-sky-500 focus:outline-none" 
-                          />
+                                      });
+  
+                                      // Fire hot reload automatically
+                                      invoke("write_terminal", { data: "r" }).catch(console.error);
+                                    }).catch(err => console.error("Failed to update property:", err));
+                                  }, 500);
+                                }
+                              }}
+                              className="flex h-8 w-full rounded border border-border/50 bg-background items-center px-2 shadow-sm text-xs font-mono focus:ring-1 focus:ring-sky-500 focus:outline-none" 
+                            />
+                          </div>
                         </div>
                       );
                     });

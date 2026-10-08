@@ -179,6 +179,7 @@ async fn start_terminal(
     state: State<'_, TerminalState>,
     cols: u16,
     rows: u16,
+    cwd: Option<String>,
 ) -> Result<(), String> {
     use portable_pty::{native_pty_system, CommandBuilder, PtySize};
     use std::io::Read;
@@ -208,6 +209,9 @@ async fn start_terminal(
     let mut cmd = CommandBuilder::new(&shell);
     if !cfg!(target_os = "windows") {
         cmd.arg("-l");
+    }
+    if let Some(dir) = cwd {
+        cmd.cwd(dir);
     }
 
     let _child = pty_pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
@@ -614,13 +618,13 @@ async fn parse_dart_file(source_code: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn inject_widget(file_path: String, parent_id: String, new_widget_type: String) -> Result<(), String> {
-    ast_parser::inject_widget_to_dart_file(&file_path, &parent_id, &new_widget_type)
+async fn inject_widget(file_path: String, parent_id: String, new_widget_type: String, current_source: Option<String>) -> Result<(), String> {
+    ast_parser::inject_widget_to_dart_file(&file_path, &parent_id, &new_widget_type, current_source.as_deref())
 }
 
 #[tauri::command]
-async fn update_widget_property(file_path: String, node_id: String, property_key: String, property_value: String) -> Result<(), String> {
-    ast_parser::update_widget_property(&file_path, &node_id, &property_key, &property_value)
+async fn update_widget_property(file_path: String, node_id: String, property_key: String, property_value: String, current_source: Option<String>) -> Result<(), String> {
+    ast_parser::update_widget_property(&file_path, &node_id, &property_key, &property_value, current_source.as_deref())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

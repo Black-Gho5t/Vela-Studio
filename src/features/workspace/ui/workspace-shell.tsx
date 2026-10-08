@@ -1,7 +1,7 @@
 import * as React from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ResizableSidebar, ResizableBottomPanel } from "@/components/ui/ide-resizable";
-
+import { ResizableSidebar } from "@/components/ui/ide-resizable";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
@@ -92,36 +92,38 @@ export function WorkspaceShell() {
             onToggleRight={() => setRightPanel((v) => !v)}
           />
 
-          <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
-            {/* Editor row */}
-            <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
-              <div className="flex flex-1 min-w-0 min-h-0 h-full overflow-hidden">
-                <WorkspaceOverview />
+          <ResizablePanelGroup orientation="vertical" className="flex-1 min-h-0">
+            <ResizablePanel id="editor" defaultSize="72" minSize="20" className="flex h-full min-h-0 min-w-0 overflow-hidden">
+              <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
+                <div className="flex flex-1 min-w-0 min-h-0 h-full overflow-hidden">
+                  <WorkspaceOverview />
+                </div>
+                
+                {rightPanel && (
+                  <ResizableSidebar id="right-panel" side="right" defaultWidth={280}>
+                    <div className="flex flex-col h-full border-l border-border bg-background">
+                      <div className="flex h-9 items-center border-b border-border px-3 shrink-0">
+                        <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
+                          Panel
+                        </span>
+                      </div>
+                      <div className="flex flex-1 items-center justify-center">
+                        <span className="text-xs text-muted-foreground/50">Right panel</span>
+                      </div>
+                    </div>
+                  </ResizableSidebar>
+                )}
+                
+                {/* Right secondary rail (inside editor row) */}
+                <WorkspaceSecondaryRail />
               </div>
-              
-              {rightPanel && (
-                <ResizableSidebar id="right-panel" side="right" defaultWidth={280}>
-                  <div className="flex flex-col h-full border-l border-border bg-background">
-                    <div className="flex h-9 items-center border-b border-border px-3 shrink-0">
-                      <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
-                        Panel
-                      </span>
-                    </div>
-                    <div className="flex flex-1 items-center justify-center">
-                      <span className="text-xs text-muted-foreground/50">Right panel</span>
-                    </div>
-                  </div>
-                </ResizableSidebar>
-              )}
-              
-              {/* Right secondary rail (inside editor row) */}
-              <WorkspaceSecondaryRail />
-            </div>
+            </ResizablePanel>
 
             {/* Bottom panel */}
             {bottomPanel && (
-              <ResizableBottomPanel id="terminal" defaultHeight={250}>
-                <div className="flex flex-col h-full bg-background border-t border-border">
+              <>
+                <ResizableHandle withHandle />
+                <ResizablePanel id="bottom-panel" defaultSize="28" minSize="10" className="flex flex-col h-full min-h-0 overflow-hidden bg-background border-t border-border">
                   <div className="flex h-9 items-center px-1 shrink-0 border-b border-border gap-1 overflow-x-auto no-scrollbar">
                     {["PROBLEMS", "OUTPUT", "DEBUG CONSOLE", "TERMINAL"].map((tab) => (
                       <button
@@ -139,12 +141,12 @@ export function WorkspaceShell() {
                   </div>
                   <div className="flex-1 min-h-0 h-full w-full">
                     {/* Hardcoded to WorkspaceTerminal for now as requested */}
-                    <WorkspaceTerminal />
+                    <WorkspaceTerminal projectPath={projectPath || undefined} />
                   </div>
-                </div>
-              </ResizableBottomPanel>
+                </ResizablePanel>
+              </>
             )}
-          </div>
+          </ResizablePanelGroup>
         </div>
       </div>
       </div>

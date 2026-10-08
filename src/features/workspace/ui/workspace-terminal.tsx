@@ -5,7 +5,7 @@ import "xterm/css/xterm.css";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 
-export function WorkspaceTerminal() {
+export function WorkspaceTerminal({ projectPath }: { projectPath?: string }) {
   const terminalRef = React.useRef<HTMLDivElement>(null);
   const xtermRef = React.useRef<Terminal | null>(null);
   const fitAddonRef = React.useRef<FitAddon | null>(null);
@@ -45,10 +45,10 @@ export function WorkspaceTerminal() {
     fitAddonRef.current = fitAddon;
 
     // 2. Start the PTY process in Rust
-    const cols = term.cols;
-    const rows = term.rows;
+    const cols = term.cols || 80;
+    const rows = term.rows || 24;
 
-    invoke("start_terminal", { cols, rows })
+    invoke("start_terminal", { cols, rows, cwd: projectPath })
       .then(() => {
         console.log("PTY started successfully");
       })
@@ -85,6 +85,7 @@ export function WorkspaceTerminal() {
       resizeObserver.disconnect();
       if (unlistenStdout) unlistenStdout();
       term.dispose();
+      initialized.current = false;
     };
   }, []);
 

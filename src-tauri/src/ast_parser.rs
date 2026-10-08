@@ -72,6 +72,11 @@ fn walk_node(node: Node, source: &[u8]) -> Option<WidgetNode> {
                             if let Some(val_node) = value_node_opt {
                                 if label_text == "child" || label_text == "body" || label_text == "appBar" {
                                     if let Some(child_widget) = walk_node(val_node, source) {
+                                        if label_text == "child" && text == "ElevatedButton" && child_widget.r#type == "Text" {
+                                            if let Some(data) = child_widget.props.get("data") {
+                                                props.insert("childText".to_string(), data.clone());
+                                            }
+                                        }
                                         children.push(child_widget);
                                     }
                                 } else if label_text == "children" {
@@ -170,9 +175,11 @@ pub fn parse_dart_to_widget_tree(source_code: &str) -> Option<WidgetNode> {
 // Fase 3.5: Bidirectional Code Injection!
 // This function parses the file, finds the parent node using the stable ID (which contains the start_byte),
 // and injects the new widget code into the Dart file.
-pub fn inject_widget_to_dart_file(file_path: &str, parent_id: &str, new_widget_type: &str) -> Result<(), String> {
-    let source_code = fs::read_to_string(file_path)
-        .map_err(|e| format!("Failed to read file: {}", e))?;
+pub fn inject_widget_to_dart_file(file_path: &str, parent_id: &str, new_widget_type: &str, current_source: Option<&str>) -> Result<(), String> {
+    let source_code = match current_source {
+        Some(s) => s.to_string(),
+        None => fs::read_to_string(file_path).map_err(|e| format!("Failed to read file: {}", e))?,
+    };
     
     // parent_id format is "column-1240"
     let parts: Vec<&str> = parent_id.split('-').collect();
@@ -262,9 +269,11 @@ pub fn inject_widget_to_dart_file(file_path: &str, parent_id: &str, new_widget_t
     Ok(())
 }
 
-pub fn update_widget_property(file_path: &str, node_id: &str, prop_key: &str, prop_val: &str) -> Result<(), String> {
-    let source_code = fs::read_to_string(file_path)
-        .map_err(|e| format!("Failed to read file: {}", e))?;
+pub fn update_widget_property(file_path: &str, node_id: &str, prop_key: &str, prop_val: &str, current_source: Option<&str>) -> Result<(), String> {
+    let source_code = match current_source {
+        Some(s) => s.to_string(),
+        None => fs::read_to_string(file_path).map_err(|e| format!("Failed to read file: {}", e))?,
+    };
     
     // node_id format is "text-1240"
     let parts: Vec<&str> = node_id.split('-').collect();
@@ -355,7 +364,9 @@ pub fn update_widget_property(file_path: &str, node_id: &str, prop_key: &str, pr
         
         if prop_key == "data" {
             new_source.push_str(&format!("'{}', ", prop_val));
-        } else if prop_key == "title" || prop_key == "childText" || prop_key == "text" || prop_key == "tipografia" || prop_key == "color" || prop_key == "estilo" {
+        } else if prop_key == "childText" || prop_key == "text" {
+            new_source.push_str(&format!(", child: Text('{}')", prop_val));
+        } else if prop_key == "title" || prop_key == "tipografia" || prop_key == "color" || prop_key == "estilo" {
             new_source.push_str(&format!(", {}: '{}'", prop_key, prop_val));
         } else {
             new_source.push_str(&format!(", {}: {}", prop_key, prop_val));
