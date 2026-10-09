@@ -453,6 +453,7 @@ export function VelaDesigner({ code, filePath }: { code?: string; filePath?: str
                                   // Keep the color picker in sync, but wait to update tree until text changes?
                                   // Or just update directly:
                                   const eTarget = e.target as HTMLInputElement;
+                                  const hex = eTarget.value;
                                   // The color picker returns #RRGGBB. Convert to Dart Color(0xFFRRGGBB)
                                   const dartColor = `Color(0xFF${hex.replace('#', '')})`;
                                   

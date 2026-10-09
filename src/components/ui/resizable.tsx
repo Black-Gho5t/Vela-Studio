@@ -1,18 +1,17 @@
+"use client"
+
 import { cn } from "cn"
 import * as ResizablePrimitive from "react-resizable-panels"
 
 function ResizablePanelGroup({
   className,
-  orientation = "horizontal",
   ...props
 }: ResizablePrimitive.GroupProps) {
   return (
     <ResizablePrimitive.Group
       data-slot="resizable-panel-group"
-      orientation={orientation}
       className={cn(
-        "flex h-full w-full min-h-0 min-w-0",
-        orientation === "vertical" && "flex-col",
+        "flex h-full w-full aria-[orientation=vertical]:flex-col",
         className
       )}
       {...props}
@@ -35,18 +34,13 @@ function ResizableHandle({
     <ResizablePrimitive.Separator
       data-slot="resizable-handle"
       className={cn(
-        "relative flex w-px items-center justify-center bg-border transition-colors",
-        "after:absolute after:inset-y-0 after:left-1/2 after:w-2 after:-translate-x-1/2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1",
-        "aria-[orientation=horizontal]:h-px aria-[orientation=horizontal]:w-full aria-[orientation=horizontal]:after:left-0 aria-[orientation=horizontal]:after:h-2 aria-[orientation=horizontal]:after:w-full aria-[orientation=horizontal]:after:-translate-y-1/2 aria-[orientation=horizontal]:after:translate-x-0",
-        // IDE hover effects
-        "hover:bg-sky-500/50 aria-[orientation=horizontal]:hover:bg-sky-500/50",
-        "z-10",
+        "relative flex w-px items-center justify-center bg-border ring-offset-background after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-hidden aria-[orientation=horizontal]:h-px aria-[orientation=horizontal]:w-full aria-[orientation=horizontal]:after:left-0 aria-[orientation=horizontal]:after:h-1 aria-[orientation=horizontal]:after:w-full aria-[orientation=horizontal]:after:translate-x-0 aria-[orientation=horizontal]:after:-translate-y-1/2 [&[aria-orientation=horizontal]>div]:rotate-90",
         className
       )}
       {...props}
     >
       {withHandle && (
-        <div className="z-20 flex h-6 w-1 shrink-0 rounded-lg bg-border [[aria-orientation=horizontal]>&]:h-1 [[aria-orientation=horizontal]>&]:w-6" />
+        <div className="z-10 flex h-6 w-1 shrink-0 rounded-lg bg-border" />
       )}
     </ResizablePrimitive.Separator>
   )

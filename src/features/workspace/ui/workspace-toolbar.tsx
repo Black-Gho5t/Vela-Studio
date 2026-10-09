@@ -198,11 +198,13 @@ export function WorkspaceToolbar({
             {/* Run Configurations */}
             <div className="flex items-center bg-transparent">
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-7 px-2.5 text-[12px] font-normal gap-2 text-muted-foreground hover:text-foreground">
-                    {selectedDevice ? selectedDevice.name : (devices.length > 0 ? devices[0].name : "No Devices")}
-                    <ChevronDown className="size-3.5 opacity-50" />
-                  </Button>
+                <DropdownMenuTrigger
+                  render={
+                    <Button variant="ghost" className="h-7 px-2.5 text-[12px] font-normal gap-2 text-muted-foreground hover:text-foreground" />
+                  }
+                >
+                  {selectedDevice ? selectedDevice.name : (devices.length > 0 ? devices[0].name : "No Devices")}
+                  <ChevronDown className="size-3.5 opacity-50" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="center" className="min-w-[160px]">
                   {devices.length === 0 ? (
@@ -249,19 +251,23 @@ export function WorkspaceToolbar({
             {/* Build & Debug Actions */}
             <div className="flex items-center gap-1">
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
-                    <Hammer className="size-4" />
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" />
+                  }
+                >
+                  <Hammer className="size-4" />
                 </TooltipTrigger>
                 <TooltipContent side="bottom" sideOffset={6}>Make Project</TooltipContent>
               </Tooltip>
 
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button onClick={handleHotReload} disabled={!daemonRunning} variant="ghost" size="icon" className="h-7 w-7 text-sky-400 hover:text-sky-300">
-                    <RefreshCcw className="size-4" />
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button onClick={handleHotReload} disabled={!daemonRunning} variant="ghost" size="icon" className="h-7 w-7 text-sky-400 hover:text-sky-300" />
+                  }
+                >
+                  <RefreshCcw className="size-4" />
                 </TooltipTrigger>
                 <TooltipContent side="bottom" sideOffset={6}>Apply Changes</TooltipContent>
               </Tooltip>
@@ -269,19 +275,23 @@ export function WorkspaceToolbar({
               <div className="w-px h-4 bg-border/60 mx-1" />
 
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button onClick={handleHotRestart} disabled={!daemonRunning} variant="ghost" size="icon" className="h-7 w-7 text-emerald-500 hover:text-emerald-400">
-                    <StepForward className="size-4" />
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button onClick={handleHotRestart} disabled={!daemonRunning} variant="ghost" size="icon" className="h-7 w-7 text-emerald-500 hover:text-emerald-400" />
+                  }
+                >
+                  <StepForward className="size-4" />
                 </TooltipTrigger>
                 <TooltipContent side="bottom" sideOffset={6}>Step Over</TooltipContent>
               </Tooltip>
 
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
-                    <CornerUpRight className="size-4" />
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" />
+                  }
+                >
+                  <CornerUpRight className="size-4" />
                 </TooltipTrigger>
                 <TooltipContent side="bottom" sideOffset={6}>Step Out</TooltipContent>
               </Tooltip>
@@ -289,10 +299,12 @@ export function WorkspaceToolbar({
               <div className="w-px h-4 bg-border/60 mx-1" />
 
               <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
-                    <Layers className="size-4" />
-                  </Button>
+                <TooltipTrigger
+                  render={
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" />
+                  }
+                >
+                  <Layers className="size-4" />
                 </TooltipTrigger>
                 <TooltipContent side="bottom" sideOffset={6}>Sync Project with Gradle Files</TooltipContent>
               </Tooltip>
@@ -309,21 +321,23 @@ export function WorkspaceToolbar({
         <div className="flex items-center gap-0.5">
           {layoutButtons.map(({ key, icon: Icon, label, shortcut }) => (
             <Tooltip key={key}>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "size-7 rounded-md text-muted-foreground transition-none hover:bg-muted/60 hover:text-foreground",
-                    panelState[key] && "bg-muted/80 text-foreground",
-                  )}
-                  aria-label={label}
-                  aria-pressed={panelState[key]}
-                  onClick={panelToggle[key]}
-                >
-                  <Icon className="size-3.5" />
-                </Button>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "size-7 rounded-md text-muted-foreground transition-none hover:bg-muted/60 hover:text-foreground",
+                      panelState[key] && "bg-muted/80 text-foreground",
+                    )}
+                    aria-label={label}
+                    aria-pressed={panelState[key]}
+                    onClick={panelToggle[key]}
+                  />
+                }
+              >
+                <Icon className="size-3.5" />
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={6}>
                 <div className="flex items-center gap-2">
@@ -340,19 +354,21 @@ export function WorkspaceToolbar({
 
         {/* User avatar — opens dropdown */}
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="flex size-7 items-center justify-center rounded-lg outline-none transition-all duration-150 hover:ring-2 hover:ring-border focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
-              aria-label="User menu"
-            >
-              <Avatar className="size-6 rounded-lg">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg text-[10px]">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-            </button>
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                className="flex size-7 items-center justify-center rounded-lg outline-none transition-all duration-150 hover:ring-2 hover:ring-border focus-visible:ring-2 focus-visible:ring-ring active:scale-95"
+                aria-label="User menu"
+              />
+            }
+          >
+            <Avatar className="size-6 rounded-lg">
+              <AvatarImage src={user.avatar} alt={user.name} />
+              <AvatarFallback className="rounded-lg text-[10px]">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
           </DropdownMenuTrigger>
 
           <DropdownMenuContent

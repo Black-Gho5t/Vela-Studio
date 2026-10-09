@@ -50,16 +50,18 @@ export function WorkspaceGit() {
           onOpenChange={setIsChangesOpen}
           className="space-y-1"
         >
-          <CollapsibleTrigger asChild>
-            <button className="flex w-full items-center gap-1 px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors">
-              <ChevronDown
-                className={cn(
-                  "size-3.5 transition-transform duration-200",
-                  !isChangesOpen && "-rotate-90",
-                )}
-              />
-              <span>Changes</span>
-            </button>
+          <CollapsibleTrigger
+            render={
+              <button className="flex w-full items-center gap-1 px-3 py-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors" />
+            }
+          >
+            <ChevronDown
+              className={cn(
+                "size-3.5 transition-transform duration-200",
+                !isChangesOpen && "-rotate-90",
+              )}
+            />
+            <span>Changes</span>
           </CollapsibleTrigger>
 
           <CollapsibleContent className="space-y-3 px-3 pb-3">
@@ -126,16 +128,18 @@ export function WorkspaceGit() {
           className="border-t border-border/40"
         >
           <div className="flex items-center justify-between pr-3">
-            <CollapsibleTrigger asChild>
-              <button className="flex items-center gap-1 px-3 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors flex-1 text-left">
-                <ChevronDown
-                  className={cn(
-                    "size-3.5 transition-transform duration-200",
-                    !isGraphOpen && "-rotate-90",
-                  )}
-                />
-                <span>Graph</span>
-              </button>
+            <CollapsibleTrigger
+              render={
+                <button className="flex items-center gap-1 px-3 py-3 text-[11px] font-medium text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors flex-1 text-left" />
+              }
+            >
+              <ChevronDown
+                className={cn(
+                  "size-3.5 transition-transform duration-200",
+                  !isGraphOpen && "-rotate-90",
+                )}
+              />
+              <span>Graph</span>
             </CollapsibleTrigger>
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1 text-[10px] text-muted-foreground/70">

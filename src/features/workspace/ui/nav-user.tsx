@@ -30,26 +30,26 @@ export function NavUser({
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-8 w-fit gap-2 rounded-lg px-2">
-          <Avatar className="h-6 w-6 rounded-lg">
-            <AvatarImage src={user.avatar} alt={user.name} />
-            <AvatarFallback className="rounded-lg text-xs">
-              {user.name
-                .split(" ")
-                .map((n) => n[0])
-                .join("")
-                .toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div className="hidden flex-1 text-left text-sm leading-tight sm:flex sm:flex-col">
-            <span className="truncate font-medium text-xs">{user.name}</span>
-            <span className="truncate text-xs text-muted-foreground">
-              {user.email}
-            </span>
-          </div>
-          <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
-        </Button>
+      <DropdownMenuTrigger
+        render={<Button variant="ghost" className="h-8 w-fit gap-2 rounded-lg px-2" />}
+      >
+        <Avatar className="h-6 w-6 rounded-lg">
+          <AvatarImage src={user.avatar} alt={user.name} />
+          <AvatarFallback className="rounded-lg text-xs">
+            {user.name
+              .split(" ")
+              .map((n) => n[0])
+              .join("")
+              .toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+        <div className="hidden flex-1 text-left text-sm leading-tight sm:flex sm:flex-col">
+          <span className="truncate font-medium text-xs">{user.name}</span>
+          <span className="truncate text-xs text-muted-foreground">
+            {user.email}
+          </span>
+        </div>
+        <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
         className="w-56 rounded-lg"

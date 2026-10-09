@@ -60,15 +60,16 @@ export function SettingsSidebar({
             <Collapsible
               key={group.id}
               defaultOpen={false}
-              className="group/collapsible"
             >
               <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton className="h-8 text-[13px] font-semibold tracking-[0.24px] text-foreground/90 hover:text-foreground hover:bg-muted/50 transition-all px-3 rounded-full">
-                    <ChevronDown className="size-3.5 transition-transform group-data-[state=open]/collapsible:rotate-0 -rotate-90 opacity-60 shrink-0" />
-                    <span className="truncate">{group.title}</span>
-                    {group.id === "version-control" && <SidebarAction icon={Globe} />}
-                  </SidebarMenuButton>
+                <CollapsibleTrigger
+                  render={
+                    <SidebarMenuButton className="h-8 text-[13px] font-semibold tracking-[0.24px] text-foreground/90 hover:text-foreground hover:bg-muted/50 transition-all px-3 rounded-full" />
+                  }
+                >
+                  <ChevronDown className="size-3.5 transition-transform group-data-[state=open]/collapsible:rotate-0 -rotate-90 opacity-60 shrink-0" />
+                  <span className="truncate">{group.title}</span>
+                  {group.id === "version-control" && <SidebarAction icon={Globe} />}
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <SidebarMenu className="mt-1 pl-4 gap-0.5">

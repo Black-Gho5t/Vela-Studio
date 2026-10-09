@@ -79,44 +79,42 @@ function TreeNode({
   if (!isFolder) {
     return (
       <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={async () => {
-                const store = useWorkspaceStore.getState();
-                const existingTab = store.tabs.find((t) => t.id === id);
-                if (existingTab) {
-                  store.setActiveTab(id);
-                  return;
-                }
+        <ContextMenuTrigger render={<SidebarMenuItem />}>
+          <SidebarMenuButton
+            onClick={async () => {
+              const store = useWorkspaceStore.getState();
+              const existingTab = store.tabs.find((t) => t.id === id);
+              if (existingTab) {
+                store.setActiveTab(id);
+                return;
+              }
 
-                // Add tab immediately in a loading state
-                addTab({
-                  id: id,
-                  name: name,
-                  path: node.path,
-                  isActive: true,
-                  isModified: false,
-                  isLoading: true,
-                  content: "",
-                });
+              // Add tab immediately in a loading state
+              addTab({
+                id: id,
+                name: name,
+                path: node.path,
+                isActive: true,
+                isModified: false,
+                isLoading: true,
+                content: "",
+              });
 
-                try {
-                  const { workspaceApi } = await import("../api/workspace.api");
-                  const content = await workspaceApi.readFile(node.path);
-                  useWorkspaceStore.getState().setTabLoaded(id, content);
-                } catch (err) {
-                  useWorkspaceStore.getState().updateTabContent(id, `// Error loading file:\n${err}`);
-                }
-              }}
-              isActive={id === activeTabId}
-              className="h-7 rounded-full border border-transparent bg-background/70 px-2.5 text-[12px] tracking-[0.12px] transition-none hover:border-border hover:bg-muted/50 data-[active=true]:border-primary data-[active=true]:bg-primary data-[active=true]:text-primary-foreground"
-              style={{ paddingLeft: `${0.625 + depth * 0.625}rem` }}
-            >
-              <FileIcon fileName={name} />
-              <span>{name}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+              try {
+                const { workspaceApi } = await import("../api/workspace.api");
+                const content = await workspaceApi.readFile(node.path);
+                useWorkspaceStore.getState().setTabLoaded(id, content);
+              } catch (err) {
+                useWorkspaceStore.getState().updateTabContent(id, `// Error loading file:\n${err}`);
+              }
+            }}
+            isActive={id === activeTabId}
+            className="h-7 rounded-full border border-transparent bg-background/70 px-2.5 text-[12px] tracking-[0.12px] transition-none hover:border-border hover:bg-muted/50 data-[active=true]:border-primary data-[active=true]:bg-primary data-[active=true]:text-primary-foreground"
+            style={{ paddingLeft: `${0.625 + depth * 0.625}rem` }}
+          >
+            <FileIcon fileName={name} />
+            <span>{name}</span>
+          </SidebarMenuButton>
         </ContextMenuTrigger>
         <ContextMenuContent>{contextMenuItems}</ContextMenuContent>
       </ContextMenu>
@@ -126,21 +124,19 @@ function TreeNode({
   return (
     <>
       <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={() => setOpen((c) => !c)}
-              className="h-7 rounded-full border border-transparent bg-background/70 px-2.5 text-[12px] tracking-[0.12px] transition-none hover:border-border hover:bg-muted/50"
-              style={{ paddingLeft: `${0.375 + depth * 0.625}rem` }}
-              aria-expanded={open}
-            >
-              <ChevronRight
-                className={`transition-transform duration-200 ${open ? "rotate-90" : ""}`}
-              />
-              <FolderMaterialIcon folderName={name} isOpen={open} />
-              <span>{name}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+        <ContextMenuTrigger render={<SidebarMenuItem />}>
+          <SidebarMenuButton
+            onClick={() => setOpen((c) => !c)}
+            className="h-7 rounded-full border border-transparent bg-background/70 px-2.5 text-[12px] tracking-[0.12px] transition-none hover:border-border hover:bg-muted/50"
+            style={{ paddingLeft: `${0.375 + depth * 0.625}rem` }}
+            aria-expanded={open}
+          >
+            <ChevronRight
+              className={`transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+            />
+            <FolderMaterialIcon folderName={name} isOpen={open} />
+            <span>{name}</span>
+          </SidebarMenuButton>
         </ContextMenuTrigger>
         <ContextMenuContent>{contextMenuItems}</ContextMenuContent>
       </ContextMenu>

@@ -84,43 +84,45 @@ export function WorkspacePrimaryRail({ activeView, onViewChange }: WorkspacePrim
                   aria-hidden="true"
                 />
                 <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className={cn(
-                        // base
-                        "group/btn relative flex size-7 items-center justify-center rounded-lg outline-none",
-                        "transition-all duration-150 ease-out",
-                        // hover
-                        "hover:bg-muted hover:scale-110",
-                        // active press
-                        "active:scale-95 active:duration-75",
-                        // focus-visible
-                        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-                        // active nav state
-                        isActive
-                          ? "bg-foreground/8 text-foreground"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                      aria-label={label}
-                      aria-haspopup={id === "settings" ? "dialog" : undefined}
-                      aria-pressed={isActive}
-                      onClick={() => {
-                        if (id === "settings") {
-                          setIsSettingsOpen(true);
-                        } else {
-                          onViewChange(id);
-                        }
-                      }}
-                    >
-                      <Icon
+                  <TooltipTrigger
+                    render={
+                      <button
+                        type="button"
                         className={cn(
-                          "size-[15px] transition-transform duration-150",
-                          "group-hover/btn:scale-110",
-                          isActive ? "opacity-100" : "opacity-60 group-hover/btn:opacity-100",
+                          // base
+                          "group/btn relative flex size-7 items-center justify-center rounded-lg outline-none",
+                          "transition-all duration-150 ease-out",
+                          // hover
+                          "hover:bg-muted hover:scale-110",
+                          // active press
+                          "active:scale-95 active:duration-75",
+                          // focus-visible
+                          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+                          // active nav state
+                          isActive
+                            ? "bg-foreground/8 text-foreground"
+                            : "text-muted-foreground hover:text-foreground",
                         )}
+                        aria-label={label}
+                        aria-haspopup={id === "settings" ? "dialog" : undefined}
+                        aria-pressed={isActive}
+                        onClick={() => {
+                          if (id === "settings") {
+                            setIsSettingsOpen(true);
+                          } else {
+                            onViewChange(id);
+                          }
+                        }}
                       />
-                    </button>
+                    }
+                  >
+                    <Icon
+                      className={cn(
+                        "size-[15px] transition-transform duration-150",
+                        "group-hover/btn:scale-110",
+                        isActive ? "opacity-100" : "opacity-60 group-hover/btn:opacity-100",
+                      )}
+                    />
                   </TooltipTrigger>
                   <TooltipContent side="right" sideOffset={12}>
                     <div className="space-y-0.5">
