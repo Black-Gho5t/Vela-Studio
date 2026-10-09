@@ -2,7 +2,7 @@ import * as React from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ResizableSidebar } from "@/components/ui/ide-resizable";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
 import { WorkspaceOverview } from "./workspace-overview";
@@ -11,6 +11,7 @@ import { WorkspaceSidebar } from "./workspace-sidebar";
 import { WorkspaceToolbar } from "./workspace-toolbar";
 import { WorkspaceSecondaryRail } from "./workspace-secondary-rail";
 import { WorkspaceTerminal } from "./workspace-terminal";
+import { DesignerSidebar } from "./designer-sidebar";
 import { VelaSetupScreen } from "./vela-setup";
 import { useWorkspaceStore } from "../model/workspace.store";
 
@@ -48,6 +49,7 @@ export function WorkspaceShell() {
   const [leftPanel, setLeftPanel] = React.useState(true);
   const [bottomPanel, setBottomPanel] = React.useState(true);
   const [rightPanel, setRightPanel] = React.useState(false);
+  const [designerSidebarOpen, setDesignerSidebarOpen] = React.useState(true);
 
   const workspaceMode = useWorkspaceStore((state) => state.workspaceMode);
   const setWorkspaceMode = useWorkspaceStore((state) => state.setWorkspaceMode);
@@ -61,22 +63,31 @@ export function WorkspaceShell() {
     }
   };
 
+  const currentLeftPanel = workspaceMode === "designer" ? designerSidebarOpen : leftPanel;
+  const handleToggleLeft = () => {
+    if (workspaceMode === "designer") {
+      setDesignerSidebarOpen((v) => !v);
+    } else {
+      setLeftPanel((v) => !v);
+    }
+  };
+
   if (!engineReady) {
     return <VelaSetupScreen onComplete={() => setEngineReady(true)} />;
   }
 
   return (
-    <SidebarProvider>
+    <SidebarProvider open={designerSidebarOpen} onOpenChange={setDesignerSidebarOpen}>
       <div className="flex h-svh w-full flex-col overflow-hidden bg-background">
         {/* Full-width Toolbar across entire window */}
         <WorkspaceToolbar
           projectName={computedProjectName}
           gitBranch={gitBranch}
           onBranchChange={setGitBranch}
-          leftPanel={leftPanel}
+          leftPanel={currentLeftPanel}
           bottomPanel={bottomPanel}
           rightPanel={rightPanel}
-          onToggleLeft={() => setLeftPanel((v) => !v)}
+          onToggleLeft={handleToggleLeft}
           onToggleBottom={() => setBottomPanel((v) => !v)}
           onToggleRight={() => setRightPanel((v) => !v)}
           mode={workspaceMode}
@@ -164,10 +175,15 @@ export function WorkspaceShell() {
         </div>
       </div>
 
-      {/* Designer Workspace: renders empty space for now */}
+      {/* Designer Workspace: layout with empty Sidebar and main canvas area */}
       {workspaceMode === "designer" && (
-        <div className="flex flex-1 min-h-0 w-full items-center justify-center bg-background overflow-hidden select-none">
-          {/* Espacio vacío por ahora */}
+        <div className="flex flex-1 min-h-0 w-full overflow-hidden">
+          <DesignerSidebar className="top-10 h-[calc(100svh-2.5rem)]" />
+          <SidebarInset className="flex flex-1 min-h-0 flex-col bg-background overflow-hidden">
+            <div className="flex-1 min-h-0 w-full flex items-center justify-center p-4">
+              {/* Espacio para la vista de Diseño */}
+            </div>
+          </SidebarInset>
         </div>
       )}
       </div>
