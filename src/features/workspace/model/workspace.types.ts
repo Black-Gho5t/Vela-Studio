@@ -17,6 +17,8 @@ export interface WorkspaceTab {
   isLoading?: boolean;
 }
 
+export type WorkspaceMode = "designer" | "editor";
+
 export interface WorkspaceState {
   projectName: string | null;
   projectPath: string | null;
@@ -25,4 +27,5 @@ export interface WorkspaceState {
   fileTree: FileNode[];
   devices: any[];
   selectedDeviceId: string | null;
+  workspaceMode: WorkspaceMode;
 }

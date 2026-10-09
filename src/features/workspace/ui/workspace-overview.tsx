@@ -411,6 +411,7 @@ export function WorkspaceOverview() {
                 beforeMount={handleEditorWillMount}
                 onMount={handleEditorDidMount}
                 options={{
+                  automaticLayout: true,
                   fontSize: 13,
                   fontFamily:
                     "'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",

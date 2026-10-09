@@ -315,6 +315,81 @@ async fn get_git_branch(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+async fn get_git_branches(path: String) -> Result<Vec<String>, String> {
+    use std::process::Command;
+
+    let expanded_path = if path.starts_with('~') {
+        if let Some(home) = std::env::var("HOME")
+            .ok()
+            .or_else(|| std::env::var("USERPROFILE").ok())
+        {
+            path.replacen("~", &home, 1)
+        } else {
+            path.clone()
+        }
+    } else {
+        path.clone()
+    };
+
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(&expanded_path)
+        .arg("branch")
+        .arg("--format=%(refname:short)")
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        let text = String::from_utf8_lossy(&output.stdout);
+        let branches: Vec<String> = text
+            .lines()
+            .map(|l| l.trim().to_string())
+            .filter(|l| !l.is_empty())
+            .collect();
+        return Ok(branches);
+    }
+
+    Err("Failed to get git branches".to_string())
+}
+
+#[tauri::command]
+async fn switch_git_branch(path: String, branch: String) -> Result<String, String> {
+    use std::process::Command;
+
+    let expanded_path = if path.starts_with('~') {
+        if let Some(home) = std::env::var("HOME")
+            .ok()
+            .or_else(|| std::env::var("USERPROFILE").ok())
+        {
+            path.replacen("~", &home, 1)
+        } else {
+            path.clone()
+        }
+    } else {
+        path.clone()
+    };
+
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(&expanded_path)
+        .arg("checkout")
+        .arg(&branch)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if output.status.success() {
+        Ok(branch)
+    } else {
+        let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if err.is_empty() {
+            Err("Failed to switch branch".to_string())
+        } else {
+            Err(err)
+        }
+    }
+}
+
+#[tauri::command]
 async fn get_flutter_devices() -> Result<String, String> {
     let flutter_bin = resolve_flutter_path();
     let output = if cfg!(target_os = "windows") {
@@ -652,6 +727,8 @@ pub fn run() {
             send_lsp_message,
             get_flutter_devices,
             get_git_branch,
+            get_git_branches,
+            switch_git_branch,
             start_terminal,
             write_terminal,
             resize_terminal,

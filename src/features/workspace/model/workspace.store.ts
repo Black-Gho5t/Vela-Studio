@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { WorkspaceState, WorkspaceTab, FileNode } from "./workspace.types";
+import { WorkspaceState, WorkspaceTab, FileNode, WorkspaceMode } from "./workspace.types";
 
 interface WorkspaceActions {
   setProjectName: (name: string | null) => void;
@@ -21,6 +21,9 @@ interface WorkspaceActions {
   // Devices
   setDevices: (devices: any[]) => void;
   setSelectedDeviceId: (id: string | null) => void;
+
+  // Workspace Mode (Diseñador / Editor)
+  setWorkspaceMode: (mode: WorkspaceMode) => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
@@ -34,8 +37,10 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       fileTree: [],
       devices: [],
       selectedDeviceId: null,
+      workspaceMode: "editor",
 
       // Actions
+      setWorkspaceMode: (mode) => set({ workspaceMode: mode }),
       setProjectName: (name) => set({ projectName: name }),
       setProjectPath: (path) => set({ projectPath: path }),
       addTab: (tab) =>
@@ -97,6 +102,7 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       partialize: (state) => ({
         projectName: state.projectName,
         projectPath: state.projectPath,
+        workspaceMode: state.workspaceMode,
       }),
     },
   ),

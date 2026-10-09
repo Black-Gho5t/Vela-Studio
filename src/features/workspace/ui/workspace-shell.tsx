@@ -49,6 +49,9 @@ export function WorkspaceShell() {
   const [bottomPanel, setBottomPanel] = React.useState(true);
   const [rightPanel, setRightPanel] = React.useState(false);
 
+  const workspaceMode = useWorkspaceStore((state) => state.workspaceMode);
+  const setWorkspaceMode = useWorkspaceStore((state) => state.setWorkspaceMode);
+
   const handleViewChange = (view: "explorer" | "search" | "git") => {
     if (activeView === view && leftPanel) {
       setLeftPanel(false);
@@ -64,33 +67,44 @@ export function WorkspaceShell() {
 
   return (
     <SidebarProvider>
-      <div className="flex h-svh w-full overflow-hidden bg-background">
-      {/* Activity bar — always visible */}
-      <WorkspacePrimaryRail 
-        activeView={activeView}
-        onViewChange={handleViewChange}
-      />
+      <div className="flex h-svh w-full flex-col overflow-hidden bg-background">
+        {/* Full-width Toolbar across entire window */}
+        <WorkspaceToolbar
+          projectName={computedProjectName}
+          gitBranch={gitBranch}
+          onBranchChange={setGitBranch}
+          leftPanel={leftPanel}
+          bottomPanel={bottomPanel}
+          rightPanel={rightPanel}
+          onToggleLeft={() => setLeftPanel((v) => !v)}
+          onToggleBottom={() => setBottomPanel((v) => !v)}
+          onToggleRight={() => setRightPanel((v) => !v)}
+          mode={workspaceMode}
+          onModeChange={setWorkspaceMode}
+        />
 
-      <div className="flex flex-1 min-w-0 h-full overflow-hidden">
-        {/* File tree */}
-        {leftPanel && (
-          <ResizableSidebar id="sidebar" side="left" defaultWidth={260}>
-            <WorkspaceSidebar open={leftPanel} activeView={activeView} />
-          </ResizableSidebar>
-        )}
-
-        {/* Main area: toolbar + editor + panels */}
-        <div className="flex flex-col flex-1 min-w-0 min-h-0 bg-background overflow-hidden">
-          <WorkspaceToolbar
-            projectName={computedProjectName}
-            gitBranch={gitBranch}
-            leftPanel={leftPanel}
-            bottomPanel={bottomPanel}
-            rightPanel={rightPanel}
-            onToggleLeft={() => setLeftPanel((v) => !v)}
-            onToggleBottom={() => setBottomPanel((v) => !v)}
-            onToggleRight={() => setRightPanel((v) => !v)}
+        {/* Editor Workspace: renders full shell layout (activity bar, file tree, monaco editor, panels) */}
+        <div
+          className={cn(
+            "flex flex-1 min-h-0 w-full overflow-hidden",
+            workspaceMode !== "editor" && "hidden"
+          )}
+        >
+          {/* Activity bar — always visible */}
+          <WorkspacePrimaryRail 
+            activeView={activeView}
+            onViewChange={handleViewChange}
           />
+
+          {/* File tree */}
+          {leftPanel && (
+            <ResizableSidebar id="sidebar" side="left" defaultWidth={260}>
+              <WorkspaceSidebar open={leftPanel} activeView={activeView} />
+            </ResizableSidebar>
+          )}
+
+          {/* Main area: editor + panels */}
+          <div className="flex flex-col flex-1 min-w-0 min-h-0 bg-background overflow-hidden">
 
           <ResizablePanelGroup orientation="vertical" className="flex-1 min-h-0">
             <ResizablePanel id="editor" defaultSize="72" minSize="20" className="flex h-full min-h-0 min-w-0 overflow-hidden">
@@ -149,6 +163,13 @@ export function WorkspaceShell() {
           </ResizablePanelGroup>
         </div>
       </div>
+
+      {/* Designer Workspace: renders empty space for now */}
+      {workspaceMode === "designer" && (
+        <div className="flex flex-1 min-h-0 w-full items-center justify-center bg-background overflow-hidden select-none">
+          {/* Espacio vacío por ahora */}
+        </div>
+      )}
       </div>
     </SidebarProvider>
   );
