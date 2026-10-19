@@ -1,10 +1,14 @@
-import { ChevronRight } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { ChevronRight, FolderOpen } from "lucide-react";
 import * as React from "react";
+import { Button } from "@/components/ui/button";
 import { FileIcon, FolderMaterialIcon } from "./file-icon";
 
 import {
   ContextMenu,
   ContextMenuContent,
+  ContextMenuGroup,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuSub,
@@ -41,7 +45,7 @@ function TreeNode({
   const { addTab, activeTabId } = useWorkspaceStore();
 
   const contextMenuItems = isFolder ? (
-    <>
+    <ContextMenuGroup>
       <ContextMenuItem>New File...</ContextMenuItem>
       <ContextMenuItem>New Folder...</ContextMenuItem>
       <ContextMenuSeparator />
@@ -51,8 +55,10 @@ function TreeNode({
       <ContextMenuSub>
         <ContextMenuSubTrigger>Share</ContextMenuSubTrigger>
         <ContextMenuSubContent>
-          <ContextMenuItem>Copy Link</ContextMenuItem>
-          <ContextMenuItem>Share on GitHub</ContextMenuItem>
+          <ContextMenuGroup>
+            <ContextMenuItem>Copy Link</ContextMenuItem>
+            <ContextMenuItem>Share on GitHub</ContextMenuItem>
+          </ContextMenuGroup>
         </ContextMenuSubContent>
       </ContextMenuSub>
       <ContextMenuSeparator />
@@ -65,15 +71,15 @@ function TreeNode({
       <ContextMenuItem>Copy Relative Path</ContextMenuItem>
       <ContextMenuSeparator />
       <ContextMenuItem>Generate Markdown structure</ContextMenuItem>
-    </>
+    </ContextMenuGroup>
   ) : (
-    <>
+    <ContextMenuGroup>
       <ContextMenuItem>Reveal in Finder</ContextMenuItem>
       <ContextMenuItem>Open in Integrated Terminal</ContextMenuItem>
       <ContextMenuSeparator />
       <ContextMenuItem>Copy Path</ContextMenuItem>
       <ContextMenuItem>Copy Relative Path</ContextMenuItem>
-    </>
+    </ContextMenuGroup>
   );
 
   if (!isFolder) {
@@ -109,7 +115,7 @@ function TreeNode({
               }
             }}
             isActive={id === activeTabId}
-            className="h-7 rounded-full border border-transparent bg-background/70 px-2.5 text-[12px] tracking-[0.12px] transition-none hover:border-border hover:bg-muted/50 data-[active=true]:border-primary data-[active=true]:bg-primary data-[active=true]:text-primary-foreground"
+            className="h-7 rounded-md border border-transparent px-2 text-xs tracking-normal transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground data-[active=true]:font-medium text-sidebar-foreground"
             style={{ paddingLeft: `${0.625 + depth * 0.625}rem` }}
           >
             <FileIcon fileName={name} />
@@ -127,7 +133,7 @@ function TreeNode({
         <ContextMenuTrigger render={<SidebarMenuItem />}>
           <SidebarMenuButton
             onClick={() => setOpen((c) => !c)}
-            className="h-7 rounded-full border border-transparent bg-background/70 px-2.5 text-[12px] tracking-[0.12px] transition-none hover:border-border hover:bg-muted/50"
+            className="h-7 rounded-md border border-transparent px-2 text-xs tracking-normal transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sidebar-foreground"
             style={{ paddingLeft: `${0.375 + depth * 0.625}rem` }}
             aria-expanded={open}
           >
@@ -159,7 +165,7 @@ function TreeNode({
 // ── WorkspaceSidebar ──────────────────────────────────────────────────────────
 
 interface WorkspaceSidebarProps {
-  open: boolean;
+  open?: boolean;
   activeView: "explorer" | "search" | "git";
 }
 
@@ -167,7 +173,7 @@ export function WorkspaceSidebar({ activeView }: WorkspaceSidebarProps) {
   return (
     <div
       className={cn(
-        "flex h-full w-full shrink-0 flex-col border-r border-border bg-background overflow-hidden"
+        "flex h-full w-full shrink-0 flex-col border-r border-sidebar-border bg-sidebar overflow-hidden"
       )}
     >
       <div className="no-scrollbar flex h-full w-full flex-col gap-0 overflow-auto">
@@ -179,17 +185,11 @@ export function WorkspaceSidebar({ activeView }: WorkspaceSidebarProps) {
   );
 }
 
-import { invoke } from "@tauri-apps/api/core";
-
 function ExplorerView() {
   const fileTree = useWorkspaceStore((state) => state.fileTree);
   const setFileTree = useWorkspaceStore((state) => state.setFileTree);
   const projectName = useWorkspaceStore((state) => state.projectName) || "No Project";
   const projectPath = useWorkspaceStore((state) => state.projectPath);
-
-  const [devices, setDevices] = React.useState<any[]>([]);
-  const selectedDevice = useWorkspaceStore((state) => state.selectedDeviceId);
-  const setSelectedDevice = useWorkspaceStore((state) => state.setSelectedDeviceId);
 
   React.useEffect(() => {
     if (projectPath) {
@@ -201,79 +201,65 @@ function ExplorerView() {
     }
   }, [projectPath, setFileTree]);
 
-  React.useEffect(() => {
-    const fetchDevices = async () => {
-      try {
-        const res = await invoke<string>("get_flutter_devices");
-        const parsed = JSON.parse(res);
-        setDevices(parsed);
-        useWorkspaceStore.getState().setDevices(parsed);
-        if (parsed.length > 0 && !useWorkspaceStore.getState().selectedDeviceId) {
-          useWorkspaceStore.getState().setSelectedDeviceId(parsed[0].id);
-        }
-      } catch (e) {
-        console.error("Failed to fetch devices:", e);
+  const handleOpenFolder = async () => {
+    try {
+      const selected = await openDialog({
+        directory: true,
+        multiple: false,
+      });
+      if (selected && typeof selected === "string") {
+        const name = selected.split(/[/\\]/).pop() || "unknown-project";
+        useWorkspaceStore.getState().setProjectName(name);
+        useWorkspaceStore.getState().setProjectPath(selected);
       }
-    };
-    fetchDevices();
-    const interval = setInterval(fetchDevices, 10000); // Poll every 10s
-    return () => clearInterval(interval);
-  }, []);
+    } catch (e) {
+      console.error("Failed to open folder:", e);
+    }
+  };
 
   return (
-    <div className="flex flex-col gap-2 p-2 h-full">
-      {/* Device Selector */}
-      <div className="flex flex-col gap-1.5 rounded-[12px] border border-border bg-background p-2">
-        <div className="flex items-center justify-between px-1">
-          <div className="text-[9px] uppercase tracking-[0.22em] text-muted-foreground h-4 flex items-center">
-            Target Device
-          </div>
-        </div>
-        <select 
-          value={selectedDevice || ""} 
-          onChange={(e) => setSelectedDevice(e.target.value)}
-          className="w-full bg-muted/50 text-[11px] rounded-md border border-border/60 p-1.5 outline-none focus:border-primary transition-colors"
-        >
-          {devices.length === 0 ? (
-            <option value="" disabled>No devices found</option>
-          ) : (
-            devices.map(d => (
-              <option key={d.id} value={d.id}>
-                {d.name} ({d.platform})
-              </option>
-            ))
-          )}
-        </select>
-        {selectedDevice && (
-          <div className="flex items-center gap-2 px-1">
-             <div className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-             <span className="text-[10px] text-muted-foreground">Ready to run</span>
-          </div>
+    <div className="flex h-full w-full flex-col overflow-hidden bg-sidebar">
+      {/* Header */}
+      <div className="flex h-9 items-center justify-between px-3 border-b border-border/40 shrink-0">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
+          Files
+        </h2>
+        {projectName && (
+          <span
+            className="text-[10px] font-medium uppercase tracking-[0.15em] text-muted-foreground/60 truncate max-w-[120px]"
+            title={projectName}
+          >
+            {projectName}
+          </span>
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col rounded-[12px] border border-border bg-background p-2">
-        <div className="flex items-center justify-between px-1">
-          <div className="text-[9px] uppercase tracking-[0.22em] text-muted-foreground h-6 flex items-center">
-            Files
-          </div>
-          <span className="text-[9px] uppercase tracking-[0.18em] text-muted-foreground truncate max-w-[100px]" title={projectName}>
-            {projectName}
-          </span>
-        </div>
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <ScrollArea className="h-full w-full rounded-[10px]">
-            <SidebarMenu className="min-w-max space-y-0.5 whitespace-nowrap pr-3 pt-1">
+      {/* Content */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {fileTree.length > 0 ? (
+          <ScrollArea className="h-full w-full">
+            <SidebarMenu className="min-w-max space-y-0.5 whitespace-nowrap px-2 py-2">
               {fileTree.map((item) => (
-                <TreeNode
-                  key={item.id}
-                  node={item}
-                />
+                <TreeNode key={item.id} node={item} />
               ))}
             </SidebarMenu>
           </ScrollArea>
-        </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-3">No hay carpeta abierta</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenFolder}
+              className="text-xs h-7 gap-1.5 cursor-pointer"
+            >
+              <FolderOpen className="size-3.5" />
+              <span>Abrir carpeta</span>
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+

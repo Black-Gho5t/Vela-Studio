@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { WorkspaceOverview } from "./workspace-overview";
 import { WorkspacePrimaryRail } from "./workspace-primary-rail";
 import { WorkspaceSidebar } from "./workspace-sidebar";
-import { WorkspaceToolbar } from "./workspace-toolbar";
+import { WorkspaceTitlebar } from "./workspace-titlebar";
 import { WorkspaceSecondaryRail } from "./workspace-secondary-rail";
 import { WorkspaceTerminal } from "./workspace-terminal";
 import { DesignerSidebar } from "./designer-sidebar";
@@ -39,6 +39,24 @@ export function WorkspaceShell() {
     return () => clearInterval(interval);
   }, [projectPath]);
 
+  React.useEffect(() => {
+    const fetchDevices = async () => {
+      try {
+        const res = await invoke<string>("get_flutter_devices");
+        const parsed = JSON.parse(res);
+        useWorkspaceStore.getState().setDevices(parsed);
+        if (parsed.length > 0 && !useWorkspaceStore.getState().selectedDeviceId) {
+          useWorkspaceStore.getState().setSelectedDeviceId(parsed[0].id);
+        }
+      } catch (e) {
+        console.error("Failed to fetch devices:", e);
+      }
+    };
+    fetchDevices();
+    const interval = setInterval(fetchDevices, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   const computedProjectName = React.useMemo(() => {
     if (projectName) return projectName;
     if (projectPath) return projectPath.split(/[/\\]/).pop() || null;
@@ -47,7 +65,7 @@ export function WorkspaceShell() {
 
   const [activeView, setActiveView] = React.useState<"explorer" | "search" | "git">("explorer");
   const [leftPanel, setLeftPanel] = React.useState(true);
-  const [bottomPanel, setBottomPanel] = React.useState(true);
+  const [bottomPanel, setBottomPanel] = React.useState(false);
   const [rightPanel, setRightPanel] = React.useState(false);
   const [designerSidebarOpen, setDesignerSidebarOpen] = React.useState(true);
 
@@ -79,8 +97,8 @@ export function WorkspaceShell() {
   return (
     <SidebarProvider open={designerSidebarOpen} onOpenChange={setDesignerSidebarOpen}>
       <div className="flex h-svh w-full flex-col overflow-hidden bg-background">
-        {/* Full-width Toolbar across entire window */}
-        <WorkspaceToolbar
+        {/* Full-width Titlebar across entire window */}
+        <WorkspaceTitlebar
           projectName={computedProjectName}
           gitBranch={gitBranch}
           onBranchChange={setGitBranch}
@@ -105,6 +123,7 @@ export function WorkspaceShell() {
           <WorkspacePrimaryRail 
             activeView={activeView}
             onViewChange={handleViewChange}
+            showRightBorder={!leftPanel}
           />
 
           {/* File tree */}
@@ -121,7 +140,7 @@ export function WorkspaceShell() {
             <ResizablePanel id="editor" defaultSize="72" minSize="20" className="flex h-full min-h-0 min-w-0 overflow-hidden">
               <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
                 <div className="flex flex-1 min-w-0 min-h-0 h-full overflow-hidden">
-                  <WorkspaceOverview />
+                  <WorkspaceOverview onSwitchView={handleViewChange} />
                 </div>
                 
                 {rightPanel && (
@@ -178,7 +197,7 @@ export function WorkspaceShell() {
       {/* Designer Workspace: layout with empty Sidebar and main canvas area */}
       {workspaceMode === "designer" && (
         <div className="flex flex-1 min-h-0 w-full overflow-hidden">
-          <DesignerSidebar className="top-10 h-[calc(100svh-2.5rem)]" />
+          <DesignerSidebar className="top-[36px] h-[calc(100svh-36px)]" />
           <SidebarInset className="flex flex-1 min-h-0 flex-col bg-background overflow-hidden">
             <div className="flex-1 min-h-0 w-full flex items-center justify-center p-4">
               {/* Espacio para la vista de Diseño */}

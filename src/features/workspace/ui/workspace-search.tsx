@@ -14,6 +14,19 @@ import {
 } from "lucide-react";
 import * as React from "react";
 
+import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
 
 export function WorkspaceSearch() {
@@ -22,11 +35,11 @@ export function WorkspaceSearch() {
   return (
     <div className="flex h-full flex-col bg-background">
       {/* Header */}
-      <div className="flex h-9 items-center justify-between px-4">
+      <div className="flex h-9 items-center justify-between px-3 border-b border-border/40">
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
           Code Search
         </h2>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <SearchActionIcon icon={RotateCcw} tooltip="Refresh" />
           <SearchActionIcon icon={Eraser} tooltip="Clear Search" />
           <SearchActionIcon icon={FileSearch} tooltip="New Search" />
@@ -36,50 +49,53 @@ export function WorkspaceSearch() {
       </div>
 
       {/* Search Controls */}
-      <div className="space-y-2 p-3">
+      <div className="flex flex-col gap-2 p-3">
         <div className="flex items-start gap-1.5">
-          <button
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={() => setIsReplaceOpen(!isReplaceOpen)}
-            className="mt-1.5 flex size-4 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="mt-1 size-5 shrink-0 text-muted-foreground hover:text-foreground"
           >
             {isReplaceOpen ? (
               <ChevronDown className="size-3.5" />
             ) : (
               <ChevronRight className="size-3.5" />
             )}
-          </button>
+          </Button>
 
-          <div className="flex-1 space-y-1.5">
+          <div className="flex-1 flex flex-col gap-1.5">
             {/* Search Input Container */}
-            <div className="relative group">
-              <input
+            <InputGroup className="h-8 bg-muted/30 border-border/60">
+              <InputGroupInput
                 type="text"
                 placeholder="Search"
-                className="h-8 w-full rounded-md border border-border/50 bg-muted/30 pl-2.5 pr-20 text-[12px] outline-none transition-all focus:border-primary/50 focus:bg-background"
+                className="text-xs"
               />
-              <div className="absolute right-1 top-1 flex items-center gap-0.5 pr-1">
+              <InputGroupAddon align="inline-end" className="gap-0.5 pr-1">
                 <SearchOptionIcon icon={CaseSensitive} active={false} tooltip="Match Case (Aa)" />
                 <SearchOptionIcon icon={WholeWord} active={false} tooltip="Match Whole Word (ab)" />
                 <SearchOptionIcon icon={Regex} active={false} tooltip="Use Regular Expression (*)" />
-              </div>
-            </div>
+              </InputGroupAddon>
+            </InputGroup>
 
             {/* Replace Input Container */}
             {isReplaceOpen && (
-              <div className="relative group flex items-center gap-2">
-                <div className="relative flex-1">
-                  <input
+              <div className="flex items-center gap-1.5">
+                <InputGroup className="h-8 bg-muted/30 border-border/60 flex-1">
+                  <InputGroupInput
                     type="text"
                     placeholder="Replace"
-                    className="h-8 w-full rounded-md border border-border/50 bg-muted/30 pl-2.5 pr-10 text-[12px] outline-none transition-all focus:border-primary/50 focus:bg-background"
+                    className="text-xs"
                   />
-                  <div className="absolute right-1 top-1 flex items-center gap-0.5 pr-1">
+                  <InputGroupAddon align="inline-end" className="gap-0.5 pr-1">
                     <SearchOptionIcon icon={CaseSensitive} active={false} tooltip="Preserve Case (AB)" />
-                  </div>
-                </div>
+                  </InputGroupAddon>
+                </InputGroup>
                 <div className="flex shrink-0 items-center gap-0.5">
-                   <SearchActionIcon icon={Replace} tooltip="Replace" />
-                   <SearchActionIcon icon={ReplaceAll} tooltip="Replace All" />
+                  <SearchActionIcon icon={Replace} tooltip="Replace" />
+                  <SearchActionIcon icon={ReplaceAll} tooltip="Replace All" />
                 </div>
               </div>
             )}
@@ -94,38 +110,72 @@ export function WorkspaceSearch() {
 
       {/* Results Placeholder */}
       <div className="flex flex-1 items-center justify-center p-4 text-center">
-         <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
-           No search results found.<br />
-           Type something to start searching across the project.
-         </p>
+        <Empty className="p-4 border-none">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <FileSearch className="size-5 text-muted-foreground" />
+            </EmptyMedia>
+            <EmptyTitle className="text-sm">No search results</EmptyTitle>
+            <EmptyDescription className="text-xs text-muted-foreground">
+              Type something above to search across the project.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       </div>
     </div>
   );
 }
 
-function SearchActionIcon({ icon: Icon, tooltip }: { icon: any; tooltip: string }) {
+function SearchActionIcon({
+  icon: Icon,
+  tooltip,
+  onClick,
+}: {
+  icon: any;
+  tooltip: string;
+  onClick?: () => void;
+}) {
   return (
-    <button
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      className="size-6 text-muted-foreground/70 hover:text-foreground"
       title={tooltip}
-      className="flex size-6 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+      onClick={onClick}
     >
       <Icon className="size-3.5" />
-    </button>
+    </Button>
   );
 }
 
-function SearchOptionIcon({ icon: Icon, active, tooltip }: { icon: any; active: boolean; tooltip: string }) {
+function SearchOptionIcon({
+  icon: Icon,
+  active,
+  tooltip,
+  onClick,
+}: {
+  icon: any;
+  active: boolean;
+  tooltip: string;
+  onClick?: () => void;
+}) {
   return (
-    <button
-      title={tooltip}
+    <Button
+      type="button"
+      variant={active ? "secondary" : "ghost"}
+      size="icon-xs"
       className={cn(
-        "flex size-5 items-center justify-center rounded transition-colors",
+        "size-6 transition-colors",
         active
           ? "bg-primary/20 text-primary"
-          : "text-muted-foreground/50 hover:bg-muted hover:text-foreground"
+          : "text-muted-foreground/60 hover:text-foreground"
       )}
+      title={tooltip}
+      onClick={onClick}
     >
       <Icon className="size-3.5" />
-    </button>
+    </Button>
   );
 }
+

@@ -138,9 +138,9 @@ export function WorkspaceFlutterWizard({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[440px] border-border/60 bg-background/95 backdrop-blur-xl p-5 rounded-[20px] text-foreground shadow-2xl gap-0">
+      <DialogContent className="sm:max-w-[460px] border-border bg-background p-6 text-foreground shadow-2xl gap-0">
         <DialogHeader className="mb-4">
-          <DialogTitle className="text-lg font-medium tracking-tight">
+          <DialogTitle className="text-base font-semibold tracking-tight">
             New Flutter Project
           </DialogTitle>
           <DialogDescription className="text-muted-foreground text-xs mt-1">
@@ -151,34 +151,35 @@ export function WorkspaceFlutterWizard({
         </DialogHeader>
 
         {step === 1 && (
-          <div className="grid gap-2 py-1">
+          <div className="flex flex-col gap-2 py-1">
             {templates.map((t) => (
               <button
                 key={t.id}
+                type="button"
                 onClick={() => dispatch({ template: t.id })}
                 onDoubleClick={() => {
                   dispatch({ template: t.id });
                   handleNext();
                 }}
                 className={cn(
-                  "flex items-center gap-3 rounded-[16px] border p-2.5 text-left transition-all outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                  "flex items-center gap-3 rounded-lg border p-2.5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   template === t.id
-                    ? "border-sky-400/50 bg-sky-400/10 text-foreground"
-                    : "border-border/50 bg-muted/20 hover:bg-muted/50 text-foreground/90",
+                    ? "border-primary bg-primary/10 text-foreground"
+                    : "border-border/60 bg-muted/20 hover:bg-muted/50 text-foreground/90",
                 )}
               >
                 <div
                   className={cn(
-                    "flex size-8 shrink-0 items-center justify-center rounded-[10px]",
+                    "flex size-8 shrink-0 items-center justify-center rounded-md",
                     template === t.id
-                      ? "bg-sky-400/20 text-sky-400"
-                      : "bg-background border border-border/50 text-muted-foreground",
+                      ? "bg-primary/20 text-primary"
+                      : "bg-background border border-border/60 text-muted-foreground",
                   )}
                 >
                   <t.icon className="size-4" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[13px] font-medium leading-none mb-1">
+                  <span className="text-xs font-medium leading-none mb-1">
                     {t.name}
                   </span>
                   <span
@@ -198,11 +199,11 @@ export function WorkspaceFlutterWizard({
         )}
 
         {step === 2 && (
-          <div className="grid gap-4 py-2">
-            <div className="grid gap-1.5">
+          <div className="flex flex-col gap-4 py-2">
+            <div className="flex flex-col gap-1.5">
               <Label
                 htmlFor="projectName"
-                className="text-muted-foreground text-xs tracking-[0.24px]"
+                className="text-muted-foreground text-xs font-medium"
               >
                 Project Name
               </Label>
@@ -211,13 +212,13 @@ export function WorkspaceFlutterWizard({
                 placeholder="my_awesome_app"
                 value={projectName}
                 onChange={(e) => dispatch({ projectName: e.target.value })}
-                className="h-9 bg-muted/30 border-border/50 rounded-[12px] text-[13px] text-foreground focus-visible:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground/50"
+                className="h-9 text-xs"
               />
             </div>
-            <div className="grid gap-1.5">
+            <div className="flex flex-col gap-1.5">
               <Label
                 htmlFor="projectPath"
-                className="text-muted-foreground text-xs tracking-[0.24px]"
+                className="text-muted-foreground text-xs font-medium"
               >
                 Project Location
               </Label>
@@ -226,7 +227,7 @@ export function WorkspaceFlutterWizard({
                   id="projectPath"
                   value={projectPath}
                   onChange={(e) => dispatch({ projectPath: e.target.value })}
-                  className="h-9 font-mono text-[11px] bg-muted/30 border-border/50 rounded-[12px] text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+                  className="h-9 font-mono text-xs"
                 />
                 <Button
                   type="button"
@@ -246,7 +247,8 @@ export function WorkspaceFlutterWizard({
                       console.error("Error opening directory dialog:", e);
                     }
                   }}
-                  className="shrink-0 h-9 w-9 rounded-[12px] bg-muted/30 border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  className="shrink-0 size-9"
+                  title="Browse folder"
                 >
                   <Folder className="size-4" />
                 </Button>
@@ -255,12 +257,12 @@ export function WorkspaceFlutterWizard({
           </div>
         )}
 
-        <div className="flex w-full items-center justify-between border-t border-border/40 pt-4 mt-4">
+        <div className="flex w-full items-center justify-between border-t border-border pt-4 mt-4">
           {step === 2 ? (
             <Button
               variant="ghost"
+              size="sm"
               onClick={handleBack}
-              className="h-8 px-4 rounded-full text-[13px] text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             >
               Back
             </Button>
@@ -268,26 +270,26 @@ export function WorkspaceFlutterWizard({
             <div />
           )}
 
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <Button
               variant="ghost"
+              size="sm"
               onClick={() => onOpenChange(false)}
-              className="h-8 px-4 rounded-full text-[13px] text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             >
               Cancel
             </Button>
             {step === 1 ? (
               <Button
+                size="sm"
                 onClick={handleNext}
-                className="h-8 px-5 rounded-full text-[13px] font-medium bg-foreground text-background hover:bg-foreground/90 transition-colors"
               >
                 Next
               </Button>
             ) : (
               <Button
+                size="sm"
                 onClick={handleCreate}
                 disabled={!projectName.trim() || isCreating}
-                className="h-8 px-5 rounded-full text-[13px] font-medium bg-foreground text-background hover:bg-foreground/90 transition-colors disabled:opacity-50"
               >
                 {isCreating ? "Creating..." : "Create Project"}
               </Button>

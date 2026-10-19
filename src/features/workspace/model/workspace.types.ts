@@ -17,6 +17,12 @@ export interface WorkspaceTab {
   isLoading?: boolean;
 }
 
+export interface RecentProject {
+  name: string;
+  path: string;
+  lastOpened: number;
+}
+
 export type WorkspaceMode = "designer" | "editor";
 
 export interface WorkspaceState {
@@ -28,4 +34,6 @@ export interface WorkspaceState {
   devices: any[];
   selectedDeviceId: string | null;
   workspaceMode: WorkspaceMode;
+  recentProjects?: RecentProject[];
+  showWelcomeOnStartup?: boolean;
 }

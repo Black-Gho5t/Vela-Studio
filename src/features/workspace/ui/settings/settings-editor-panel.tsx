@@ -1,12 +1,11 @@
-
 import { Input } from "@/components/ui/input";
 import { SettingsField } from "./settings-field";
 
 export function SettingsEditorPanel() {
   return (
-    <div className="space-y-8">
-      <div className="space-y-4">
-        <h4 className="text-xs font-semibold uppercase tracking-[0.24px] text-muted-foreground">
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Typography
         </h4>
         <SettingsField
@@ -15,21 +14,21 @@ export function SettingsEditorPanel() {
         >
           <Input 
             defaultValue="'JetBrains Mono', 'Fira Code', monospace" 
-            className="bg-background border-border/40 h-10 rounded-[12px] px-3 tracking-[0.24px] text-[13px] focus-visible:ring-foreground"
+            className="max-w-md font-mono text-xs"
           />
         </SettingsField>
-        <div className="grid gap-6 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           <SettingsField
             label="Font Size"
-            description="Main editor text size (px)."
+            description="Main editor text size in pixels."
           >
-            <Input type="number" defaultValue="13" className="bg-background border-border/40 h-10 rounded-[12px] px-3 tracking-[0.24px] text-[13px] focus-visible:ring-foreground" />
+            <Input type="number" defaultValue="13" className="max-w-[120px] text-xs font-mono" />
           </SettingsField>
           <SettingsField
             label="Line Height"
             description="Vertical spacing multiplier."
           >
-            <Input type="number" defaultValue="1.5" step="0.1" className="bg-background border-border/40 h-10 rounded-[12px] px-3 tracking-[0.24px] text-[13px] focus-visible:ring-foreground" />
+            <Input type="number" defaultValue="1.5" step="0.1" className="max-w-[120px] text-xs font-mono" />
           </SettingsField>
         </div>
       </div>

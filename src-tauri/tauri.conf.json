@@ -15,7 +15,8 @@
         "title": "Vela",
         "width": 1200,
         "height": 750,
-        "hiddenTitle": true
+        "hiddenTitle": true,
+        "titleBarStyle": "Overlay"
       }
     ],
     "security": {

@@ -46,35 +46,35 @@ export function VelaSetupScreen({ onComplete }: { onComplete: () => void }) {
 
   if (checking) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
-        <div className="flex flex-col items-center animate-pulse">
-          <Zap className="size-12 mb-4 text-sky-400" />
-          <h2 className="text-lg font-medium">Starting Vela Engine...</h2>
+      <div data-tauri-drag-region className="flex h-screen w-screen items-center justify-center bg-background text-foreground select-none">
+        <div className="flex flex-col items-center animate-pulse gap-3">
+          <Zap className="size-10 text-primary" />
+          <h2 className="text-base font-medium text-muted-foreground">Starting Vela Engine...</h2>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
-      <div className="flex max-w-md flex-col items-center text-center p-8 border border-border/50 rounded-xl bg-muted/20 shadow-2xl">
-        <div className="flex size-16 items-center justify-center rounded-2xl bg-sky-400/10 text-sky-400 mb-6">
-          <Zap className="size-8 fill-current" />
+    <div data-tauri-drag-region className="flex h-screen w-screen items-center justify-center bg-background text-foreground p-4 select-none">
+      <div className="flex max-w-md w-full flex-col items-center text-center p-8 border border-border rounded-xl bg-card text-card-foreground shadow-xl">
+        <div className="flex size-14 items-center justify-center rounded-xl bg-primary/10 text-primary mb-6">
+          <Zap className="size-7 fill-current" />
         </div>
-        <h1 className="text-2xl font-semibold mb-3">Vela Engine Required</h1>
-        <p className="text-muted-foreground text-sm mb-8">
-          Vela IDE requires the Flutter SDK to function. We couldn't find an existing installation. We can download and configure it for you automatically.
+        <h1 className="text-2xl font-semibold tracking-tight mb-2">Vela Engine Required</h1>
+        <p className="text-muted-foreground text-sm mb-6 leading-relaxed">
+          Vela IDE requires the Flutter SDK to function. We couldn&apos;t find an existing installation. We can download and configure it for you automatically.
         </p>
 
         {installing ? (
-          <div className="w-full flex flex-col items-center space-y-4">
+          <div className="w-full flex flex-col items-center gap-3">
             <div className="w-full h-2 bg-muted rounded-full overflow-hidden relative">
-              <div className="absolute inset-0 bg-sky-400/50 animate-pulse" />
+              <div className="absolute inset-0 bg-primary/70 animate-pulse" />
             </div>
-            <p className="text-xs font-medium text-sky-400">{progressMsg}</p>
+            <p className="text-xs font-medium text-primary">{progressMsg}</p>
           </div>
         ) : (
-          <Button onClick={handleInstall} className="w-full bg-sky-500 hover:bg-sky-600 text-white">
+          <Button onClick={handleInstall} variant="default" className="w-full font-medium">
             Install Flutter SDK
           </Button>
         )}
@@ -82,3 +82,4 @@ export function VelaSetupScreen({ onComplete }: { onComplete: () => void }) {
     </div>
   );
 }
+

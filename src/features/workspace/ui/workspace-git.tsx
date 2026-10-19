@@ -12,6 +12,15 @@ import * as React from "react";
 import { FileIcon } from "./file-icon";
 
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 import {
@@ -33,11 +42,11 @@ export function WorkspaceGit() {
   return (
     <div className="flex h-full flex-col bg-background overflow-hidden">
       {/* Header */}
-      <div className="flex h-9 items-center justify-between px-4 shrink-0">
+      <div className="flex h-9 items-center justify-between px-3 border-b border-border/40 shrink-0">
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
           Source Control
         </h2>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <GitActionIcon icon={RefreshCcw} tooltip="Sync" />
           <GitActionIcon icon={MoreHorizontal} tooltip="More Actions" />
         </div>
@@ -65,29 +74,38 @@ export function WorkspaceGit() {
           </CollapsibleTrigger>
 
           <CollapsibleContent className="space-y-3 px-3 pb-3">
-            <div className="space-y-2">
-              <div className="relative group">
-                <textarea
+            <div className="flex flex-col gap-2">
+              <div className="relative">
+                <Textarea
                   value={commitMessage}
                   onChange={(e) => setCommitMessage(e.target.value)}
                   placeholder="Message (⌘Enter to commit...)"
-                  className="w-full min-h-[70px] max-h-[150px] rounded-md border border-border/50 bg-muted/30 p-2 text-[12px] outline-none transition-all focus:border-primary/50 focus:bg-background resize-none"
+                  className="min-h-[70px] max-h-[140px] text-xs pb-7 bg-muted/30 border-border/60 resize-none"
                 />
-                <button className="absolute right-2 bottom-2 flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary/20 transition-colors">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="absolute right-1.5 bottom-1.5 h-5 text-[10px] text-primary hover:bg-primary/10 gap-1 px-1.5"
+                >
                   <Sparkles className="size-3" />
                   <span>Generate</span>
-                </button>
+                </Button>
               </div>
 
               <div className="flex gap-1">
-                <Button className="h-8 flex-1 gap-2 rounded-md bg-foreground text-background hover:bg-foreground/90 text-xs font-medium">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-8 flex-1 gap-1.5 text-xs font-medium"
+                >
                   <Check className="size-3.5" />
                   Commit
                 </Button>
                 <Button
                   variant="outline"
-                  size="icon"
-                  className="h-8 w-8 rounded-md border-border/50 hover:bg-muted"
+                  size="icon-sm"
+                  className="h-8 w-8 border-border/60"
                 >
                   <ChevronDown className="size-3.5" />
                 </Button>
@@ -120,6 +138,7 @@ export function WorkspaceGit() {
             </div>
           </CollapsibleContent>
         </Collapsible>
+
 
         {/* Graph Section */}
         <Collapsible
@@ -198,50 +217,34 @@ export function WorkspaceGit() {
 
 function EmptyRepositoryView({ onInitialize }: { onInitialize: () => void }) {
   return (
-    <div className="flex h-full flex-col bg-background p-6">
-      <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground uppercase tracking-[0.22em] mb-6">
-        <ChevronDown className="size-3.5" />
-        <span>Changes</span>
-      </div>
-
-      <div className="space-y-6">
-        <p className="text-[12px] text-muted-foreground leading-relaxed">
-          The folder currently open doesn't have a Git repository. You can
-          initialize a repository which will enable source control features
-          powered by Git.
-        </p>
-
-        <Button
-          onClick={onInitialize}
-          className="w-full h-9 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium"
-        >
-          Initialize Repository
-        </Button>
-
-        <div className="space-y-4 pt-4">
-          <p className="text-[12px] text-muted-foreground leading-relaxed">
-            To learn more about how to use Git and source control in VS Code{" "}
-            <span className="text-primary hover:underline cursor-pointer">
-              read our docs
-            </span>
-            .
-          </p>
-
-          <p className="text-[12px] text-muted-foreground leading-relaxed pt-2 border-t border-border/40">
-            You can directly publish this folder to a GitHub repository. Once
-            published, you'll have access to source control features powered by
-            Git and GitHub.
-          </p>
-
+    <div className="flex h-full flex-col bg-background p-4">
+      <Empty className="border-none max-w-sm mx-auto">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <GitBranch className="size-5 text-muted-foreground" />
+          </EmptyMedia>
+          <EmptyTitle className="text-sm">No Git repository</EmptyTitle>
+          <EmptyDescription className="text-xs text-muted-foreground leading-relaxed">
+            The folder currently open doesn&apos;t have a Git repository. You can
+            initialize a repository which will enable source control features.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent className="w-full flex flex-col gap-2">
+          <Button
+            onClick={onInitialize}
+            className="w-full h-8 text-xs font-medium"
+          >
+            Initialize Repository
+          </Button>
           <Button
             variant="outline"
-            className="w-full h-9 rounded-md border-border/60 hover:bg-muted gap-2 text-xs font-medium"
+            className="w-full h-8 border-border/60 gap-1.5 text-xs font-medium"
           >
             <Globe className="size-3.5" />
             Publish to GitHub
           </Button>
-        </div>
-      </div>
+        </EmptyContent>
+      </Empty>
     </div>
   );
 }
@@ -262,12 +265,12 @@ function CommitItem({
   isLast?: boolean;
 }) {
   return (
-    <div className="group relative flex items-start gap-3 pl-1">
+    <div className="group relative flex items-start gap-2.5 pl-1">
       {/* Graph Line & Dot */}
       <div className="relative flex flex-col items-center shrink-0 w-3">
         <div
           className={cn(
-            "absolute w-[1.5px] bg-border/40",
+            "absolute w-px bg-border/60",
             isFirst
               ? "top-2 bottom-0"
               : isLast
@@ -277,10 +280,10 @@ function CommitItem({
         />
         <div
           className={cn(
-            "relative z-10 size-2.5 rounded-full mt-1.5 transition-transform group-hover:scale-125",
+            "relative z-10 size-2 rounded-full mt-1.5 transition-transform group-hover:scale-125",
             active
-              ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
-              : "bg-blue-400/60",
+              ? "bg-primary ring-2 ring-primary/30"
+              : "bg-muted-foreground/40",
           )}
         />
       </div>
@@ -290,29 +293,29 @@ function CommitItem({
         <div className="flex items-center gap-1.5 flex-wrap">
           <span
             className={cn(
-              "truncate text-[12px] transition-colors",
+              "truncate text-xs transition-colors",
               active
                 ? "text-foreground font-medium"
-                : "text-muted-foreground group-hover:text-foreground/80",
+                : "text-muted-foreground group-hover:text-foreground",
             )}
           >
             {message}
           </span>
           {branch && (
-            <div className="flex items-center gap-1 rounded-full bg-blue-500/10 px-1.5 py-0.5 border border-blue-500/20">
-              <GitBranch className="size-2.5 text-blue-500" />
-              <span className="text-[9px] font-bold text-blue-500 uppercase tracking-tighter">
+            <div className="flex items-center gap-1 rounded-sm bg-primary/10 px-1 py-0.2 border border-primary/20 text-primary">
+              <GitBranch className="size-2.5" />
+              <span className="text-[9px] font-semibold uppercase tracking-tight">
                 {branch}
               </span>
             </div>
           )}
           {active && (
-            <div className="size-4 flex items-center justify-center rounded-full bg-purple-500/20 border border-purple-500/30">
-              <GitCommit className="size-2.5 text-purple-400" />
+            <div className="size-3.5 flex items-center justify-center rounded-sm bg-accent text-accent-foreground border border-border">
+              <GitCommit className="size-2.5" />
             </div>
           )}
         </div>
-        <p className="text-[10px] text-muted-foreground/40 mt-0.5 group-hover:text-muted-foreground/60 transition-colors">
+        <p className="text-[10px] text-muted-foreground/60 mt-0.5 group-hover:text-muted-foreground transition-colors">
           {author}
         </p>
       </div>
@@ -328,11 +331,15 @@ function GitActionIcon({
   tooltip: string;
 }) {
   return (
-    <button
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      className="size-6 text-muted-foreground hover:text-foreground"
       title={tooltip}
-      className="flex size-6 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
     >
       <Icon className="size-3.5" />
-    </button>
+    </Button>
   );
 }
+

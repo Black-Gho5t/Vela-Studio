@@ -38,19 +38,19 @@ export function SettingsSidebar({
   setSearchQuery,
 }: SettingsSidebarProps) {
   return (
-    <Sidebar collapsible="none" className="hidden border-r border-border/40 md:flex w-[360px] bg-background overflow-x-hidden">
+    <Sidebar collapsible="none" className="hidden border-r border-border md:flex w-[320px] bg-sidebar text-sidebar-foreground overflow-x-hidden">
       <SidebarContent className="p-3 overflow-x-hidden no-scrollbar">
         {/* Search Bar */}
-        <div className="mb-4">
+        <div className="mb-3">
           <div className="relative group">
-             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 group-focus-within:text-foreground transition-colors">
+             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-foreground transition-colors">
                <Search className="size-3.5" />
              </div>
              <Input 
                placeholder="Search settings..." 
                value={searchQuery}
                onChange={(e) => setSearchQuery(e.target.value)}
-               className="h-8 pl-9 bg-muted/40 border-border/40 text-[12px] tracking-[0.24px] focus-visible:ring-1 focus-visible:ring-foreground rounded-full"
+               className="h-8 pl-9 bg-muted/40 border-border/60 text-xs focus-visible:ring-1 focus-visible:ring-ring"
              />
           </div>
         </div>
@@ -64,7 +64,7 @@ export function SettingsSidebar({
               <SidebarMenuItem>
                 <CollapsibleTrigger
                   render={
-                    <SidebarMenuButton className="h-8 text-[13px] font-semibold tracking-[0.24px] text-foreground/90 hover:text-foreground hover:bg-muted/50 transition-all px-3 rounded-full" />
+                    <SidebarMenuButton className="h-8 text-xs font-semibold text-foreground/90 hover:text-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors px-2.5 rounded-md" />
                   }
                 >
                   <ChevronDown className="size-3.5 transition-transform group-data-[state=open]/collapsible:rotate-0 -rotate-90 opacity-60 shrink-0" />
@@ -79,10 +79,10 @@ export function SettingsSidebar({
                           isActive={item.id === section}
                           onClick={() => setSection(item.id)}
                           className={cn(
-                            "h-7 text-[12px] px-4 tracking-[0.24px] transition-colors rounded-full",
+                            "h-7 text-xs px-3 transition-colors rounded-md",
                             item.id === section 
-                              ? "bg-foreground text-background font-semibold" 
-                              : "text-muted-foreground/80 hover:text-foreground hover:bg-muted/40"
+                              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
+                              : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
                           )}
                         >
                           <span className="truncate">{item.title}</span>
@@ -96,17 +96,17 @@ export function SettingsSidebar({
           ))}
 
           {/* Flat Items (Keymap, Plugins, etc.) */}
-          <div className="mt-2 pt-2 border-t border-border/40 space-y-0.5">
+          <div className="mt-2 pt-2 border-t border-border/40 flex flex-col gap-0.5">
             {flatItems.map((item) => (
               <SidebarMenuItem key={item.id}>
                  <SidebarMenuButton
                    isActive={item.id === section}
                    onClick={() => setSection(item.id as SettingsSectionId)}
                    className={cn(
-                     "h-8 text-[13px] font-semibold tracking-[0.24px] px-4 transition-all w-full rounded-full",
+                     "h-8 text-xs font-medium px-3 transition-colors w-full rounded-md",
                      item.id === section 
-                       ? "bg-foreground text-background" 
-                       : "text-foreground/90 hover:text-foreground hover:bg-muted/50"
+                       ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold" 
+                       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                    )}
                  >
                    <span className="truncate">{item.title}</span>
@@ -120,3 +120,4 @@ export function SettingsSidebar({
     </Sidebar>
   );
 }
+

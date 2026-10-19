@@ -4,12 +4,54 @@ import { FitAddon } from "xterm-addon-fit";
 import "xterm/css/xterm.css";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
+import { useTheme } from "@/shared/providers/theme";
+
+const darkTerminalTheme = {
+  background: "#141416",
+  foreground: "#fafafa",
+  cursor: "#fafafa",
+  black: "#18181b",
+  red: "#ef4444",
+  green: "#10b981",
+  yellow: "#f59e0b",
+  blue: "#3b82f6",
+  magenta: "#8b5cf6",
+  cyan: "#06b6d4",
+  white: "#fafafa",
+};
+
+const lightTerminalTheme = {
+  background: "#ffffff",
+  foreground: "#18181b",
+  cursor: "#18181b",
+  black: "#000000",
+  red: "#dc2626",
+  green: "#16a34a",
+  yellow: "#ca8a04",
+  blue: "#2563eb",
+  magenta: "#7c3aed",
+  cyan: "#0891b2",
+  white: "#ffffff",
+};
 
 export function WorkspaceTerminal({ projectPath }: { projectPath?: string }) {
   const terminalRef = React.useRef<HTMLDivElement>(null);
   const xtermRef = React.useRef<Terminal | null>(null);
   const fitAddonRef = React.useRef<FitAddon | null>(null);
   const initialized = React.useRef(false);
+  const { theme } = useTheme();
+
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" &&
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  React.useEffect(() => {
+    if (xtermRef.current) {
+      xtermRef.current.options.theme = isDark ? darkTerminalTheme : lightTerminalTheme;
+    }
+  }, [isDark]);
 
   React.useEffect(() => {
     if (!terminalRef.current || initialized.current) return;
@@ -20,19 +62,7 @@ export function WorkspaceTerminal({ projectPath }: { projectPath?: string }) {
       cursorBlink: true,
       fontFamily: "'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
       fontSize: 12,
-      theme: {
-        background: "#09090b", // Matches --background
-        foreground: "#fafafa",
-        cursor: "#fafafa",
-        black: "#000000",
-        red: "#ef4444",
-        green: "#10b981",
-        yellow: "#f59e0b",
-        blue: "#3b82f6",
-        magenta: "#8b5cf6",
-        cyan: "#06b6d4",
-        white: "#fafafa",
-      },
+      theme: isDark ? darkTerminalTheme : lightTerminalTheme,
     });
 
     const fitAddon = new FitAddon();
@@ -90,7 +120,7 @@ export function WorkspaceTerminal({ projectPath }: { projectPath?: string }) {
   }, []);
 
   return (
-    <div className="h-full w-full bg-[#09090b] px-4 py-2 overflow-hidden">
+    <div className="h-full w-full bg-background px-4 py-2 overflow-hidden">
       <div ref={terminalRef} className="h-full w-full min-h-0 min-w-0" />
     </div>
   );

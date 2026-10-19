@@ -4,6 +4,7 @@ import {
   Settings2, Component, Layers 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 import { invoke } from "@tauri-apps/api/core";
 import { 
   DndContext, 
@@ -121,8 +122,8 @@ function PaletteItem({ item }: { item: CatalogItem }) {
       {...listeners}
       {...attributes}
       className={cn(
-        "flex flex-col items-center justify-center p-3 gap-2 rounded-lg border border-border/50 bg-background hover:border-sky-500/50 hover:bg-sky-500/5 cursor-grab active:cursor-grabbing transition-colors",
-        isDragging && "opacity-50 ring-2 ring-sky-500 ring-offset-1"
+        "flex flex-col items-center justify-center p-3 gap-2 rounded-lg border border-border/50 bg-background hover:border-primary/50 hover:bg-primary/5 cursor-grab active:cursor-grabbing transition-colors",
+        isDragging && "opacity-50 ring-2 ring-primary ring-offset-1 ring-offset-background"
       )}
     >
       <item.icon className={cn("size-5 text-muted-foreground", item.rotate && "-rotate-90")} />
@@ -151,8 +152,8 @@ function DroppableWidget({
   });
 
   const isSelected = node.id === selectedId;
-  const selectionClass = isSelected ? "ring-2 ring-sky-500 ring-offset-1" : "";
-  const overClass = isOver ? "ring-2 ring-emerald-500 ring-inset bg-emerald-500/10" : "";
+  const selectionClass = isSelected ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : "";
+  const overClass = isOver ? "ring-2 ring-primary ring-inset bg-primary/10" : "";
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -380,7 +381,7 @@ export function VelaDesigner({ code, filePath }: { code?: string; filePath?: str
         {/* CENTER: Canvas (Live Device Mockup) */}
         <div ref={containerRef} className="flex-1 flex items-center justify-center bg-black/5 dark:bg-black/40 overflow-hidden relative min-h-0 min-w-0">
           <div className="absolute top-4 right-4 flex items-center gap-2 bg-background/80 backdrop-blur border border-border rounded-full px-3 py-1.5 shadow-sm z-50">
-            <Smartphone className="size-4 text-sky-500" />
+            <Smartphone className="size-4 text-primary" />
             <span className="text-xs font-medium">Live Canvas (DND Enabled)</span>
           </div>
 
@@ -478,7 +479,7 @@ export function VelaDesigner({ code, filePath }: { code?: string; filePath?: str
                                 className="size-6 rounded border border-border/50 cursor-pointer p-0 overflow-hidden shrink-0"
                               />
                             )}
-                            <input 
+                            <Input 
                               type="text" 
                               value={String(value)}
                               onChange={(e) => {
@@ -522,7 +523,7 @@ export function VelaDesigner({ code, filePath }: { code?: string; filePath?: str
                                   }, 500);
                                 }
                               }}
-                              className="flex h-8 w-full rounded border border-border/50 bg-background items-center px-2 shadow-sm text-xs font-mono focus:ring-1 focus:ring-sky-500 focus:outline-none" 
+                              className="h-8 w-full text-xs font-mono" 
                             />
                           </div>
                         </div>
@@ -543,8 +544,8 @@ export function VelaDesigner({ code, filePath }: { code?: string; filePath?: str
       {/* Drag overlay for visual feedback while dragging */}
       <DragOverlay>
         {activeDragType ? (
-          <div className="flex items-center gap-2 p-2 rounded-lg border border-sky-500/50 bg-background/80 backdrop-blur shadow-xl ring-2 ring-sky-500">
-            <ActiveIconComp className="size-5 text-sky-500" />
+          <div className="flex items-center gap-2 p-2 rounded-lg border border-primary/50 bg-background/80 backdrop-blur shadow-xl ring-2 ring-primary">
+            <ActiveIconComp className="size-5 text-primary" />
             <span className="text-xs font-medium">{activeDragType}</span>
           </div>
         ) : null}

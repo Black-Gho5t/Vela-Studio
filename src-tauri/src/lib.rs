@@ -702,6 +702,11 @@ async fn update_widget_property(file_path: String, node_id: String, property_key
     ast_parser::update_widget_property(&file_path, &node_id, &property_key, &property_value, current_source.as_deref())
 }
 
+#[tauri::command]
+fn is_macos() -> bool {
+    cfg!(target_os = "macos")
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -738,7 +743,8 @@ pub fn run() {
             send_flutter_daemon_message,
             parse_dart_file,
             inject_widget,
-            update_widget_property
+            update_widget_property,
+            is_macos
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

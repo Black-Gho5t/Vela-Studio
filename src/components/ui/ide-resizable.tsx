@@ -73,7 +73,7 @@ export function ResizableSidebar({
           side === "left" ? "-right-1" : "-left-1"
         )}
       >
-        <div className="h-full w-px bg-border group-hover:bg-sky-500 transition-colors" />
+        <div className="h-full w-px bg-border group-hover:bg-primary transition-colors" />
       </div>
     </div>
   );
@@ -145,7 +145,7 @@ export function ResizableBottomPanel({
         onMouseDown={handleMouseDown}
         className="absolute left-0 right-0 -top-1 h-2 cursor-row-resize z-50 flex flex-col items-center justify-center group"
       >
-        <div className="w-full h-px bg-border group-hover:bg-sky-500 transition-colors" />
+        <div className="w-full h-px bg-border group-hover:bg-primary transition-colors" />
       </div>
       <div className="flex-1 w-full h-full overflow-hidden">{children}</div>
     </div>

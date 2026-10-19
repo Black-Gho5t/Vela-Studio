@@ -23,9 +23,14 @@ import {
   Square,
   Layout,
   Code2,
+  FolderOpen,
+  Compass,
+  X,
 } from "lucide-react";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { usePlatform } from "@/hooks/use-platform";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -50,7 +55,7 @@ import { WorkspaceMode } from "../model/workspace.types";
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
-interface WorkspaceToolbarProps {
+interface WorkspaceTitlebarProps {
   projectName?: string | null;
   gitBranch?: string;
   onBranchChange?: (branch: string) => void;
@@ -80,7 +85,7 @@ const user = {
 
 // ── component ─────────────────────────────────────────────────────────────────
 
-export function WorkspaceToolbar({
+export function WorkspaceTitlebar({
   projectName,
   gitBranch,
   onBranchChange,
@@ -92,7 +97,7 @@ export function WorkspaceToolbar({
   onToggleRight,
   mode,
   onModeChange,
-}: WorkspaceToolbarProps) {
+}: WorkspaceTitlebarProps) {
   const panelState  = { left: leftPanel, bottom: bottomPanel, right: rightPanel };
   const panelToggle = { left: onToggleLeft, bottom: onToggleBottom, right: onToggleRight };
 
@@ -241,11 +246,40 @@ export function WorkspaceToolbar({
     .toUpperCase();
 
   const selectedDevice = devices.find((d) => d.id === selectedDeviceId);
+  const { hasMacTitleBarOffset } = usePlatform();
+
+  const handleOpenFolder = async () => {
+    try {
+      const selected = await openDialog({
+        directory: true,
+        multiple: false,
+      });
+      if (selected && typeof selected === "string") {
+        const name = selected.split(/[/\\]/).pop() || "unknown-project";
+        useWorkspaceStore.getState().setProjectName(name);
+        useWorkspaceStore.getState().setProjectPath(selected);
+      }
+    } catch (e) {
+      console.error("Failed to open folder:", e);
+    }
+  };
 
   return (
-    <header className="relative flex h-10 w-full shrink-0 items-center justify-between border-b border-border/60 bg-background/95 px-3 backdrop-blur select-none z-20">
+    <header
+      data-tauri-drag-region
+      className={cn(
+        "relative flex h-[36px] w-full shrink-0 items-center justify-between border-b border-border/60 bg-background/95 backdrop-blur select-none z-20 transition-[padding] duration-150",
+        hasMacTitleBarOffset ? "pl-[78px] pr-3" : "px-3"
+      )}
+    >
+      {/* Background drag region spanning the entire header for macOS window dragging */}
+      <div
+        data-tauri-drag-region
+        className="absolute inset-0 z-0 pointer-events-auto"
+      />
+
       {/* ── Left: Tabs (Diseñador / Editor) + Project info ── */}
-      <div className="flex items-center gap-3 min-w-0 z-10">
+      <div data-tauri-drag-region className="relative flex items-center gap-3 min-w-0 z-10">
         <Tabs
           value={currentMode}
           onValueChange={(val) => {
@@ -273,7 +307,7 @@ export function WorkspaceToolbar({
           </TabsList>
         </Tabs>
 
-        {projectName && (
+        {projectName ? (
           <>
             <div className="h-3.5 w-px bg-border/60" />
             <div className="flex items-center gap-2 min-w-0">
@@ -338,7 +372,7 @@ export function WorkspaceToolbar({
                           value={branchSearch}
                           onChange={(e) => setBranchSearch(e.target.value)}
                           placeholder="Buscar rama..."
-                          className="w-full h-6 px-2 text-[11px] bg-muted/40 border border-border/50 rounded outline-none focus:border-primary placeholder:text-muted-foreground/60"
+                          className="w-full h-6 px-2 text-[11px] bg-muted/40 border border-border/60 rounded outline-none focus:border-ring placeholder:text-muted-foreground/60 text-foreground"
                           onClick={(e) => e.stopPropagation()}
                           onKeyDown={(e) => e.stopPropagation()}
                         />
@@ -357,32 +391,46 @@ export function WorkspaceToolbar({
                           {branches.length === 0 ? "No se encontraron ramas" : "Sin coincidencias"}
                         </div>
                       ) : (
-                        filteredBranches.map((b) => {
-                          const isCurrent = b === gitBranch;
-                          return (
-                            <DropdownMenuItem
-                              key={b}
-                              onClick={() => handleSwitchBranch(b)}
-                              disabled={isCurrent || isSwitchingBranch}
-                              className={cn(
-                                "flex items-center justify-between px-2 py-1.5 text-xs rounded-sm cursor-pointer",
-                                isCurrent && "font-semibold text-primary bg-primary/10 cursor-default"
-                              )}
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                <GitBranch className={cn("size-3 shrink-0", isCurrent ? "text-primary" : "text-muted-foreground")} />
-                                <span className="truncate">{b}</span>
-                              </div>
-                              {isCurrent && <Check className="size-3 text-primary shrink-0 ml-1" />}
-                            </DropdownMenuItem>
-                          );
-                        })
+                        <DropdownMenuGroup>
+                          {filteredBranches.map((b) => {
+                            const isCurrent = b === gitBranch;
+                            return (
+                              <DropdownMenuItem
+                                key={b}
+                                onClick={() => handleSwitchBranch(b)}
+                                disabled={isCurrent || isSwitchingBranch}
+                                className={cn(
+                                  "flex items-center justify-between px-2 py-1.5 text-xs rounded-sm cursor-pointer",
+                                  isCurrent && "font-semibold text-primary bg-primary/10 cursor-default"
+                                )}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  <GitBranch className={cn("size-3 shrink-0", isCurrent ? "text-primary" : "text-muted-foreground")} />
+                                  <span className="truncate">{b}</span>
+                                </div>
+                                {isCurrent && <Check className="size-3 text-primary shrink-0 ml-1" />}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuGroup>
                       )}
                     </div>
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
             </div>
+          </>
+        ) : (
+          <>
+            <div className="h-3.5 w-px bg-border/60" />
+            <button
+              type="button"
+              onClick={handleOpenFolder}
+              className="flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground transition-all duration-150 hover:border-border hover:bg-muted/80 hover:text-foreground cursor-pointer select-none outline-none focus-visible:ring-1 focus-visible:ring-ring active:scale-95"
+            >
+              <FolderOpen className="size-3 text-muted-foreground" />
+              <span>Abrir carpeta</span>
+            </button>
           </>
         )}
       </div>
@@ -406,9 +454,9 @@ export function WorkspaceToolbar({
                   className={cn(
                     "size-1.5 rounded-full shrink-0",
                     daemonRunning
-                      ? "bg-emerald-500 animate-pulse"
+                      ? "bg-primary animate-pulse"
                       : selectedDevice
-                      ? "bg-emerald-500"
+                      ? "bg-primary"
                       : "bg-muted-foreground/40"
                   )}
                 />
@@ -418,27 +466,29 @@ export function WorkspaceToolbar({
                 <ChevronDown className="size-3 opacity-50 shrink-0" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" className="min-w-[170px]">
-                {devices.length === 0 ? (
-                  <DropdownMenuItem disabled className="text-xs">No devices detected</DropdownMenuItem>
-                ) : (
-                  devices.map((device: any) => (
-                    <DropdownMenuItem
-                      key={device.id}
-                      onClick={() => setSelectedDeviceId(device.id)}
-                      className={cn(
-                        "text-xs cursor-pointer flex items-center justify-between",
-                        selectedDeviceId === device.id && "font-semibold text-primary"
-                      )}
-                    >
-                      <span>{device.name}</span>
-                      {device.targetPlatform && (
-                        <span className="text-[10px] text-muted-foreground ml-2">
-                          ({device.targetPlatform})
-                        </span>
-                      )}
-                    </DropdownMenuItem>
-                  ))
-                )}
+                <DropdownMenuGroup>
+                  {devices.length === 0 ? (
+                    <DropdownMenuItem disabled className="text-xs">No devices detected</DropdownMenuItem>
+                  ) : (
+                    devices.map((device: any) => (
+                      <DropdownMenuItem
+                        key={device.id}
+                        onClick={() => setSelectedDeviceId(device.id)}
+                        className={cn(
+                          "text-xs cursor-pointer flex items-center justify-between",
+                          selectedDeviceId === device.id && "font-semibold text-primary"
+                        )}
+                      >
+                        <span>{device.name}</span>
+                        {device.targetPlatform && (
+                          <span className="text-[10px] text-muted-foreground ml-2">
+                            ({device.targetPlatform})
+                          </span>
+                        )}
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -450,7 +500,7 @@ export function WorkspaceToolbar({
               size="sm"
               className="h-6.5 px-2 text-[11.5px] font-normal gap-1.5 text-muted-foreground hover:text-foreground"
             >
-              <Bot className="size-3.5 text-emerald-500" />
+              <Bot className="size-3.5 text-primary" />
               <span>app</span>
               <ChevronDown className="size-3 opacity-50" />
             </Button>
@@ -467,7 +517,7 @@ export function WorkspaceToolbar({
                         onClick={handleStop}
                         variant="ghost"
                         size="icon"
-                        className="size-6.5 text-red-500 hover:text-red-400 hover:bg-red-500/15"
+                        className="size-6.5 text-destructive hover:bg-destructive/15"
                       />
                     }
                   >
@@ -483,7 +533,7 @@ export function WorkspaceToolbar({
                         onClick={handlePlay}
                         variant="ghost"
                         size="icon"
-                        className="size-6.5 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/15"
+                        className="size-6.5 text-primary hover:bg-primary/15"
                       />
                     }
                   >
@@ -499,7 +549,7 @@ export function WorkspaceToolbar({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-6.5 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/15"
+                      className="size-6.5 text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     />
                   }
                 >
@@ -544,7 +594,7 @@ export function WorkspaceToolbar({
                       disabled={!daemonRunning}
                       variant="ghost"
                       size="icon"
-                      className="size-6.5 text-sky-400 hover:text-sky-300 disabled:opacity-40"
+                      className="size-6.5 text-primary hover:bg-primary/15 disabled:opacity-40"
                     />
                   }
                 >
@@ -561,7 +611,7 @@ export function WorkspaceToolbar({
                       disabled={!daemonRunning}
                       variant="ghost"
                       size="icon"
-                      className="size-6.5 text-emerald-500 hover:text-emerald-400 disabled:opacity-40"
+                      className="size-6.5 text-primary hover:bg-primary/15 disabled:opacity-40"
                     />
                   }
                 >
@@ -604,8 +654,9 @@ export function WorkspaceToolbar({
         ) : null}
       </div>
 
+
       {/* ── Right: Layout Toggles + User Avatar ── */}
-      <div className="flex items-center gap-1.5 shrink-0 z-10 ml-auto">
+      <div className="relative flex items-center gap-1.5 shrink-0 z-10 ml-auto">
         {/* Panel toggles */}
         <div className="flex items-center gap-0.5 rounded-lg border border-border/50 bg-muted/20 p-0.5">
           {layoutButtons.map(({ key, icon: Icon, label, shortcut }) => (
@@ -682,6 +733,36 @@ export function WorkspaceToolbar({
                 </div>
               </div>
             </DropdownMenuLabel>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={handleOpenFolder} className="cursor-pointer">
+                <FolderOpen className="size-4" />
+                Abrir carpeta...
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => useWorkspaceStore.getState().openWelcomeTab()}
+                className="cursor-pointer"
+              >
+                <Compass className="size-4 text-primary" />
+                Página de bienvenida
+              </DropdownMenuItem>
+              {projectName && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    useWorkspaceStore.getState().setProjectName(null);
+                    useWorkspaceStore.getState().setProjectPath(null);
+                    useWorkspaceStore.getState().setFileTree([]);
+                    useWorkspaceStore.getState().openWelcomeTab();
+                  }}
+                  className="cursor-pointer text-destructive focus:text-destructive"
+                >
+                  <X className="size-4" />
+                  Cerrar carpeta
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuGroup>
 
             <DropdownMenuSeparator />
 

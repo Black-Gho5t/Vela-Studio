@@ -24,13 +24,18 @@ interface WorkspaceActions {
 
   // Workspace Mode (Diseñador / Editor)
   setWorkspaceMode: (mode: WorkspaceMode) => void;
+
+  // Recent Projects & Welcome
+  addRecentProject: (project: { name: string; path: string }) => void;
+  setShowWelcomeOnStartup: (show: boolean) => void;
+  openWelcomeTab: () => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
   persist(
     (set) => ({
       // Initial State
-      projectName: null, // Start with no project to show Welcome UI
+      projectName: null,
       projectPath: null,
       tabs: [],
       activeTabId: null,
@@ -38,8 +43,47 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       devices: [],
       selectedDeviceId: null,
       workspaceMode: "editor",
+      recentProjects: [
+        {
+          name: "Vela-Studio",
+          path: "/Volumes/Developer/Personal/Vela-Studio",
+          lastOpened: Date.now(),
+        },
+      ],
+      showWelcomeOnStartup: true,
 
       // Actions
+      openWelcomeTab: () =>
+        set((state) => {
+          const existing = state.tabs.find((t) => t.id === "welcome");
+          if (existing) {
+            return { activeTabId: "welcome" };
+          }
+          const welcomeTab: WorkspaceTab = {
+            id: "welcome",
+            name: "Welcome",
+            path: "welcome",
+            isActive: true,
+            isModified: false,
+          };
+          return {
+            tabs: [welcomeTab, ...state.tabs],
+            activeTabId: "welcome",
+          };
+        }),
+      setShowWelcomeOnStartup: (show) => set({ showWelcomeOnStartup: show }),
+      addRecentProject: (project) =>
+        set((state) => {
+          const filtered = (state.recentProjects || []).filter(
+            (p) => p.path !== project.path
+          );
+          return {
+            recentProjects: [
+              { ...project, lastOpened: Date.now() },
+              ...filtered,
+            ].slice(0, 10),
+          };
+        }),
       setWorkspaceMode: (mode) => set({ workspaceMode: mode }),
       setProjectName: (name) => set({ projectName: name }),
       setProjectPath: (path) => set({ projectPath: path }),
@@ -103,6 +147,8 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
         projectName: state.projectName,
         projectPath: state.projectPath,
         workspaceMode: state.workspaceMode,
+        recentProjects: state.recentProjects,
+        showWelcomeOnStartup: state.showWelcomeOnStartup,
       }),
     },
   ),

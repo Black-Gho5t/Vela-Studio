@@ -3,7 +3,6 @@ import {
   GitBranch,
   Search,
   Settings2,
-  Sparkles,
 } from "lucide-react";
 import * as React from "react";
 
@@ -14,15 +13,21 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
 import { IDESettingsDialog } from "./ide-settings-dialog";
 
 interface WorkspacePrimaryRailProps {
   activeView: "explorer" | "search" | "git";
   onViewChange: (view: "explorer" | "search" | "git") => void;
+  showRightBorder?: boolean;
 }
 
-export function WorkspacePrimaryRail({ activeView, onViewChange }: WorkspacePrimaryRailProps) {
+export function WorkspacePrimaryRail({
+  activeView,
+  onViewChange,
+  showRightBorder = false,
+}: WorkspacePrimaryRailProps) {
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
 
   const navigationItems = [
@@ -54,17 +59,14 @@ export function WorkspacePrimaryRail({ activeView, onViewChange }: WorkspacePrim
 
   return (
     <>
-      <div className="flex h-full w-12 shrink-0 flex-col items-center justify-between border-r border-border bg-background py-3 px-2">
-        {/* Top: logo + nav */}
+      <div
+        className={cn(
+          "flex h-full w-12 shrink-0 flex-col items-center justify-between bg-sidebar py-3 px-2 select-none",
+          showRightBorder && "border-r border-sidebar-border"
+        )}
+      >
+        {/* Top: nav */}
         <div className="flex flex-col items-center gap-1 w-full">
-          {/* AI logo */}
-          <div className="flex size-8 items-center justify-center rounded-full border border-border bg-foreground text-background mb-1 shrink-0">
-            <Sparkles className="size-3" />
-          </div>
-
-          {/* Separator */}
-          <div className="w-4 h-px bg-border/50 rounded-full mb-0.5" />
-
           {/* Nav items */}
           {navigationItems.map(({ id, label, description, icon: Icon }) => {
             const isActive = activeView === id;
@@ -78,7 +80,7 @@ export function WorkspacePrimaryRail({ activeView, onViewChange }: WorkspacePrim
                   className={cn(
                     "absolute left-0 top-1/2 -translate-y-1/2 w-[2.5px] rounded-full transition-all duration-150",
                     isActive
-                      ? "h-3.5 bg-foreground/40 group-hover/nav:h-4 group-hover/nav:bg-foreground/70"
+                      ? "h-3.5 bg-primary group-hover/nav:h-4"
                       : "h-0 bg-transparent",
                   )}
                   aria-hidden="true"
@@ -90,18 +92,18 @@ export function WorkspacePrimaryRail({ activeView, onViewChange }: WorkspacePrim
                         type="button"
                         className={cn(
                           // base
-                          "group/btn relative flex size-7 items-center justify-center rounded-lg outline-none",
+                          "group/btn relative flex size-7 items-center justify-center rounded-md outline-none",
                           "transition-all duration-150 ease-out",
                           // hover
-                          "hover:bg-muted hover:scale-110",
+                          "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                           // active press
                           "active:scale-95 active:duration-75",
                           // focus-visible
-                          "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+                          "focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-1",
                           // active nav state
                           isActive
-                            ? "bg-foreground/8 text-foreground"
-                            : "text-muted-foreground hover:text-foreground",
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-2xs"
+                            : "text-muted-foreground",
                         )}
                         aria-label={label}
                         aria-haspopup={id === "settings" ? "dialog" : undefined}
@@ -119,8 +121,8 @@ export function WorkspacePrimaryRail({ activeView, onViewChange }: WorkspacePrim
                     <Icon
                       className={cn(
                         "size-[15px] transition-transform duration-150",
-                        "group-hover/btn:scale-110",
-                        isActive ? "opacity-100" : "opacity-60 group-hover/btn:opacity-100",
+                        "group-hover/btn:scale-105",
+                        isActive ? "opacity-100" : "opacity-70 group-hover/btn:opacity-100",
                       )}
                     />
                   </TooltipTrigger>
@@ -137,9 +139,7 @@ export function WorkspacePrimaryRail({ activeView, onViewChange }: WorkspacePrim
         </div>
 
         {/* Bottom: ⌘B hint */}
-        <div className="flex h-6 w-8 items-center justify-center rounded-full border border-border bg-background text-[8.5px] font-medium text-foreground/50">
-          ⌘B
-        </div>
+        <Kbd className="text-[9px] h-5 px-1 font-mono">⌘B</Kbd>
       </div>
 
       <IDESettingsDialog

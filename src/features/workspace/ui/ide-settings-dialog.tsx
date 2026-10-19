@@ -8,6 +8,13 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -60,7 +67,7 @@ export function IDESettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 md:max-h-[720px] md:max-w-[1000px] lg:max-w-[1200px] border-border/40 shadow-2xl backdrop-blur-3xl bg-background/95 dark:bg-[#1e1e1e]/95">
+      <DialogContent className="overflow-hidden p-0 md:max-h-[720px] md:max-w-[1000px] lg:max-w-[1200px] border-border shadow-2xl bg-background text-foreground">
         <DialogTitle className="sr-only">IDE Settings</DialogTitle>
         <DialogDescription className="sr-only">
           Configure your IDE preferences.
@@ -75,16 +82,16 @@ export function IDESettingsDialog({
           />
 
           <main className="flex h-[720px] flex-1 flex-col overflow-hidden bg-background">
-            <header className="border-b border-border/40 px-8 py-4 sticky top-0 z-10 bg-background">
+            <header className="border-b border-border/40 px-8 py-4 sticky top-0 z-10 bg-background/95 backdrop-blur">
               <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24px] text-muted-foreground/60 mb-1">
                 <span>{section.split("-")[0]}</span>
                 <span className="opacity-30">/</span>
                 <span className="text-foreground/80">{selectedItem.title}</span>
               </div>
-              <h3 className="text-[24px] font-semibold tracking-tight leading-none text-foreground">
+              <h3 className="text-2xl font-semibold tracking-tight leading-none text-foreground">
                 {selectedItem.title}
               </h3>
-              <p className="text-[13px] text-muted-foreground mt-1.5 tracking-[0.24px]">
+              <p className="text-xs text-muted-foreground mt-1.5 tracking-normal">
                 {selectedItem.description}
               </p>
             </header>
@@ -106,15 +113,17 @@ export function IDESettingsDialog({
                     "terminal-general",
                     "advanced-json",
                   ].includes(section) && (
-                    <div className="flex flex-col items-center justify-center py-32 text-center opacity-40">
-                      <History className="size-12 mb-4" />
-                      <h4 className="text-xl font-medium tracking-tight">
-                        Under Construction
-                      </h4>
-                      <p className="text-[14px] tracking-[0.24px] mt-2">
-                        This setting panel will be available in the next update.
-                      </p>
-                    </div>
+                    <Empty className="py-24 border-none">
+                      <EmptyHeader>
+                        <EmptyMedia variant="icon">
+                          <History className="size-6 text-muted-foreground" />
+                        </EmptyMedia>
+                        <EmptyTitle className="text-lg">Under Construction</EmptyTitle>
+                        <EmptyDescription className="text-xs">
+                          This setting panel will be available in the next update.
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
                   )}
                 </div>
               </ScrollArea>
@@ -122,14 +131,14 @@ export function IDESettingsDialog({
 
             <Separator className="bg-border/40" />
             <footer className="flex items-center justify-between px-8 py-4 bg-background">
-              <div className="flex items-center gap-2 text-[12px] tracking-[0.24px] text-muted-foreground/80">
-                <div className="size-2 rounded-full bg-blue-500 animate-pulse" />
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="size-2 rounded-full bg-primary animate-pulse" />
                 <span>Syncing with Cloud Profile</span>
               </div>
-              <div className="flex gap-3">
+              <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
-                  className="rounded-full h-10 px-5 text-[14px] font-semibold tracking-[0.24px] hover:bg-muted/50"
+                  size="sm"
                   onClick={() => onOpenChange(false)}
                 >
                   Reset
@@ -140,13 +149,14 @@ export function IDESettingsDialog({
                 />
                 <Button
                   variant="outline"
-                  className="rounded-full h-10 px-5 text-[14px] font-semibold tracking-[0.24px] border-border/40"
+                  size="sm"
                   onClick={() => onOpenChange(false)}
                 >
                   Cancel
                 </Button>
                 <Button
-                  className="rounded-full h-10 px-6 text-[14px] font-semibold tracking-[0.24px] bg-foreground text-background hover:bg-foreground/90 transition-colors"
+                  variant="default"
+                  size="sm"
                   onClick={() => onOpenChange(false)}
                 >
                   Save changes
@@ -159,3 +169,4 @@ export function IDESettingsDialog({
     </Dialog>
   );
 }
+
