@@ -1,8 +1,10 @@
 import * as React from "react";
-import { Plus, Minus, Focus, Smartphone, Hand } from "lucide-react";
+import { Plus, Minus, Focus, Smartphone, Hand, Ruler } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { DesignerRulers } from "./designer-rulers";
+import { DesignerDock, type DesignerTool } from "./designer-dock";
 
 const CANVAS_SIZE = 4000;
 const MIN_SCALE = 0.25;
@@ -11,16 +13,20 @@ const MAX_SCALE = 2.0;
 interface DesignerCanvasProps {
   children?: React.ReactNode;
   className?: string;
+  isLeftSidebarOpen?: boolean;
   isRightSidebarOpen?: boolean;
 }
 
 export function DesignerCanvas({
   children,
   className,
-  isRightSidebarOpen = false,
+  isLeftSidebarOpen = true,
+  isRightSidebarOpen = true,
 }: DesignerCanvasProps) {
   const viewportRef = React.useRef<HTMLDivElement>(null);
   const [scale, setScale] = React.useState(1);
+  const [showRulers, setShowRulers] = React.useState(true);
+  const [activeTool, setActiveTool] = React.useState<DesignerTool>("select");
   const [isSpacePressed, setIsSpacePressed] = React.useState(false);
   const [isPanning, setIsPanning] = React.useState(false);
   const isPanningRef = React.useRef(false);
@@ -58,6 +64,11 @@ export function DesignerCanvas({
         target?.tagName === "TEXTAREA" ||
         target?.isContentEditable
       ) {
+        return;
+      }
+      if (e.shiftKey && (e.key === "R" || e.key === "r")) {
+        e.preventDefault();
+        setShowRulers((v) => !v);
         return;
       }
       if (e.code === "Space" && !e.repeat) {
@@ -262,10 +273,20 @@ export function DesignerCanvas({
         </div>
       </ScrollArea>
 
+      {/* Figma-like Bottom Frosted Glass Dock */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+        <DesignerDock
+          activeTool={activeTool}
+          onSelectTool={setActiveTool}
+          showRulers={showRulers}
+          onToggleRulers={() => setShowRulers((v) => !v)}
+        />
+      </div>
+
       {/* Floating HUD: Zoom Controls & Center */}
       <div
         className={cn(
-          "absolute bottom-4 z-30 flex items-center gap-1 rounded-lg border border-border/60 bg-background/90 p-1 shadow-lg backdrop-blur-md transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          "absolute bottom-4 z-30 flex items-center gap-1 rounded-2xl border border-border/50 dark:border-white/10 bg-background/70 dark:bg-zinc-900/75 p-1.5 shadow-2xl backdrop-blur-xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
           isRightSidebarOpen ? "right-[272px]" : "right-4"
         )}
       >
@@ -281,7 +302,7 @@ export function DesignerCanvas({
         <button
           type="button"
           onClick={resetZoom}
-          className="h-6 min-w-[46px] rounded px-1.5 text-center font-mono text-[11px] font-medium text-foreground transition-colors hover:bg-muted"
+          className="h-6 min-w-[46px] rounded px-1.5 text-center font-mono text-[11px] font-medium text-foreground transition-colors hover:bg-muted/80"
           title="Restablecer a 100%"
         >
           {Math.round(scale * 100)}%
@@ -295,7 +316,7 @@ export function DesignerCanvas({
         >
           <Plus className="size-3.5" />
         </Button>
-        <div className="mx-0.5 h-3.5 w-px bg-border/60" />
+        <div className="mx-0.5 h-3.5 w-px bg-border/40 dark:bg-white/10" />
         <Button
           variant="ghost"
           size="icon-xs"
@@ -304,11 +325,30 @@ export function DesignerCanvas({
         >
           <Focus className="size-3.5" />
         </Button>
+        <div className="mx-0.5 h-3.5 w-px bg-border/40 dark:bg-white/10" />
+        <Button
+          variant={showRulers ? "secondary" : "ghost"}
+          size="icon-xs"
+          onClick={() => setShowRulers((v) => !v)}
+          title={showRulers ? "Ocultar reglas (Shift + R)" : "Mostrar reglas (Shift + R)"}
+        >
+          <Ruler className="size-3.5" />
+        </Button>
       </div>
+
+      {/* Designer Rulers (Figma Style) */}
+      <DesignerRulers
+        viewportRef={viewportRef}
+        scale={scale}
+        visible={showRulers}
+        onToggleVisible={() => setShowRulers(false)}
+        isLeftSidebarOpen={isLeftSidebarOpen}
+        isRightSidebarOpen={isRightSidebarOpen}
+      />
 
       {/* Helpful Hint Pill when Space is held */}
       {isSpacePressed && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 rounded-full border border-border/60 bg-background/90 px-3 py-1 shadow-md backdrop-blur-md">
+        <div className="absolute top-8 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 rounded-full border border-border/50 dark:border-white/10 bg-background/80 dark:bg-zinc-900/80 px-3.5 py-1 shadow-lg backdrop-blur-xl">
           <Hand className="size-3.5 text-primary" />
           <span className="text-xs font-medium text-foreground">
             {isPanning ? "Arrastrando canvas..." : "Modo mano: haz clic y arrastra"}

@@ -225,6 +225,7 @@ export function WorkspaceShell() {
         <div className="relative flex flex-1 min-h-0 w-full overflow-hidden bg-background">
           {/* Full-width Infinite Canvas (Never resizes, zero layout shifting) */}
           <DesignerCanvas
+            isLeftSidebarOpen={!designerSidebarsMinimized && designerSidebarOpen}
             isRightSidebarOpen={!designerSidebarsMinimized && designerRightSidebarOpen}
           />
 
@@ -240,17 +241,17 @@ export function WorkspaceShell() {
             open={!designerSidebarsMinimized && designerRightSidebarOpen}
           />
 
-          {/* Floating Header Pills (smooth fade & slide when sidebars are minimized) */}
+          {/* Floating Header Pills (smooth fade & slide when sidebars are minimized, with margin to not overlap rulers) */}
           <div
             className={cn(
-              "pointer-events-none absolute inset-x-0 top-3 z-30 flex items-center justify-between px-3 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+              "pointer-events-none absolute inset-x-0 top-8 z-30 flex items-center justify-between px-8 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
               designerSidebarsMinimized
                 ? "opacity-100 translate-y-0"
                 : "opacity-0 -translate-y-2 pointer-events-none"
             )}
           >
             {/* Left Pill */}
-            <div className="pointer-events-auto flex items-center gap-2 h-9 px-3 rounded-xl border border-border/60 bg-background/90 backdrop-blur-md shadow-md text-foreground select-none">
+            <div className="pointer-events-auto flex items-center gap-2 h-9 px-3 rounded-2xl border border-border/50 dark:border-white/10 bg-background/70 dark:bg-zinc-900/75 backdrop-blur-xl shadow-xl text-foreground select-none">
               <Layers className="size-4 text-primary shrink-0" />
               <span className="text-xs font-medium max-w-[180px] truncate">
                 {projectName || "Vela Studio"}
@@ -263,14 +264,14 @@ export function WorkspaceShell() {
                   setDesignerRightSidebarOpen(true);
                 }}
                 title="Maximizar sidebars"
-                className="ml-1 flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className="ml-1 flex size-6 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
               >
                 <PanelLeft className="size-3.5" />
               </button>
             </div>
 
             {/* Right Pill */}
-            <div className="pointer-events-auto flex items-center gap-2 h-9 px-2.5 rounded-xl border border-border/60 bg-background/90 backdrop-blur-md shadow-md text-foreground select-none">
+            <div className="pointer-events-auto flex items-center gap-2 h-9 px-2.5 rounded-2xl border border-border/50 dark:border-white/10 bg-background/70 dark:bg-zinc-900/75 backdrop-blur-xl shadow-xl text-foreground select-none">
               <div className="size-5 rounded-full bg-amber-500/20 text-amber-500 font-semibold text-[10px] flex items-center justify-center border border-amber-500/30">
                 B
               </div>
@@ -282,7 +283,7 @@ export function WorkspaceShell() {
               >
                 <Play className="size-3 fill-current" />
               </Button>
-              <div className="h-3.5 w-px bg-border/60" />
+              <div className="h-3.5 w-px bg-border/40 dark:bg-white/10" />
               <Button
                 variant="outline"
                 size="xs"
@@ -291,7 +292,7 @@ export function WorkspaceShell() {
                   setDesignerSidebarOpen(true);
                   setDesignerRightSidebarOpen(true);
                 }}
-                className="h-6 gap-1 px-2 text-[11px] font-medium border-border/60 hover:bg-muted shadow-xs"
+                className="h-6 gap-1 px-2 text-[11px] font-medium border-border/50 dark:border-white/10 hover:bg-muted/80 shadow-xs rounded-lg"
                 title="Volver a maximizar las 2 sidebars"
               >
                 <PanelsTopLeft className="size-3.5" />
