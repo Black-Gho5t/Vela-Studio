@@ -1,20 +1,60 @@
 import * as React from "react";
-import { Plus, Minus, Focus, Smartphone, Hand, Ruler } from "lucide-react";
+import {
+  Plus,
+  Minus,
+  Focus,
+  Smartphone,
+  Hand,
+  Ruler,
+  Copy,
+  Trash2,
+} from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { DesignerRulers } from "./designer-rulers";
 import { DesignerDock, type DesignerTool } from "./designer-dock";
+import { Iphone } from "@/components/magicui/iphone";
+import { Android } from "@/components/magicui/android";
+import type { FramePresetItem } from "./designer-frame-presets";
 
 const CANVAS_SIZE = 4000;
 const MIN_SCALE = 0.25;
 const MAX_SCALE = 2.0;
+
+export interface CanvasDeviceFrame {
+  id: string;
+  type: "iphone" | "android";
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const DEFAULT_FRAMES: CanvasDeviceFrame[] = [
+  {
+    id: "frame-iphone-default",
+    type: "iphone",
+    name: "iPhone 16 Pro",
+    x: -402 / 2,
+    y: -874 / 2,
+    width: 402,
+    height: 874,
+  },
+];
 
 interface DesignerCanvasProps {
   children?: React.ReactNode;
   className?: string;
   isLeftSidebarOpen?: boolean;
   isRightSidebarOpen?: boolean;
+  activeTool?: DesignerTool;
+  onSelectTool?: (tool: DesignerTool) => void;
+  frames?: CanvasDeviceFrame[];
+  onFramesChange?: (frames: CanvasDeviceFrame[]) => void;
+  selectedFrameId?: string;
+  onSelectFrameId?: (id: string) => void;
 }
 
 export function DesignerCanvas({
@@ -22,11 +62,30 @@ export function DesignerCanvas({
   className,
   isLeftSidebarOpen = true,
   isRightSidebarOpen = true,
+  activeTool: externalActiveTool,
+  onSelectTool: externalOnSelectTool,
+  frames: externalFrames,
+  onFramesChange,
+  selectedFrameId: externalSelectedFrameId,
+  onSelectFrameId,
 }: DesignerCanvasProps) {
   const viewportRef = React.useRef<HTMLDivElement>(null);
   const [scale, setScale] = React.useState(1);
   const [showRulers, setShowRulers] = React.useState(true);
-  const [activeTool, setActiveTool] = React.useState<DesignerTool>("select");
+  const [internalActiveTool, setInternalActiveTool] = React.useState<DesignerTool>("select");
+  const [internalFrames, setInternalFrames] = React.useState<CanvasDeviceFrame[]>(DEFAULT_FRAMES);
+  const [internalSelectedFrameId, setInternalSelectedFrameId] = React.useState<string>("frame-iphone-default");
+  const [isDragOver, setIsDragOver] = React.useState(false);
+
+  const activeTool = externalActiveTool ?? internalActiveTool;
+  const setActiveTool = externalOnSelectTool ?? setInternalActiveTool;
+
+  const frames = externalFrames ?? internalFrames;
+  const setFrames = onFramesChange ?? setInternalFrames;
+
+  const selectedFrameId = externalSelectedFrameId ?? internalSelectedFrameId;
+  const setSelectedFrameId = onSelectFrameId ?? setInternalSelectedFrameId;
+
   const [isSpacePressed, setIsSpacePressed] = React.useState(false);
   const [isPanning, setIsPanning] = React.useState(false);
   const isPanningRef = React.useRef(false);
@@ -55,7 +114,24 @@ export function DesignerCanvas({
     return () => cancelAnimationFrame(frame);
   }, [centerArtboard]);
 
-  // Handle Space key for pan mode
+  const deleteFrame = React.useCallback(
+    (frameId: string) => {
+      const nextFrames = frames.filter((f) => f.id !== frameId);
+      setFrames(nextFrames);
+      if (selectedFrameId === frameId) {
+        setSelectedFrameId(nextFrames.length > 0 ? nextFrames[0].id : "");
+      }
+    },
+    [frames, selectedFrameId, setFrames, setSelectedFrameId]
+  );
+
+  const selectedFrameIdRef = React.useRef(selectedFrameId);
+  selectedFrameIdRef.current = selectedFrameId;
+
+  const deleteFrameRef = React.useRef(deleteFrame);
+  deleteFrameRef.current = deleteFrame;
+
+  // Handle keyboard shortcuts (F for frame, V for select, Space for pan, Shift+R for rulers, Backspace/Delete to remove frame)
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -70,6 +146,30 @@ export function DesignerCanvas({
         e.preventDefault();
         setShowRulers((v) => !v);
         return;
+      }
+      if (
+        e.key === "Backspace" ||
+        e.key === "Delete" ||
+        e.code === "Backspace" ||
+        e.code === "Delete"
+      ) {
+        if (selectedFrameIdRef.current) {
+          e.preventDefault();
+          deleteFrameRef.current(selectedFrameIdRef.current);
+          return;
+        }
+      }
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (e.key === "f" || e.key === "F") {
+          e.preventDefault();
+          setActiveTool("frame");
+          return;
+        }
+        if (e.key === "v" || e.key === "V" || e.key === "Escape") {
+          e.preventDefault();
+          setActiveTool("select");
+          return;
+        }
       }
       if (e.code === "Space" && !e.repeat) {
         e.preventDefault();
@@ -101,7 +201,7 @@ export function DesignerCanvas({
       window.removeEventListener("keyup", handleKeyUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, []);
+  }, [setActiveTool]);
 
   // Handle Ctrl/Cmd + Wheel for smooth zooming
   React.useEffect(() => {
@@ -125,7 +225,7 @@ export function DesignerCanvas({
     };
   }, []);
 
-  // Pointer drag for panning (Middle click or Space + Left click)
+  // Pointer drag for canvas panning (Middle click or Space + Left click)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const isMiddleClick = e.button === 1;
     const isSpaceLeftClick = isSpacePressed && e.button === 0;
@@ -173,6 +273,110 @@ export function DesignerCanvas({
     }
   };
 
+  // Drag and drop handling for device frames from sidebar to canvas
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    if (!isDragOver) setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const raw = e.dataTransfer.getData("application/json");
+    if (!raw) return;
+
+    try {
+      const preset: FramePresetItem = JSON.parse(raw);
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+
+      const rect = viewport.getBoundingClientRect();
+      const dropScreenX = e.clientX - rect.left;
+      const dropScreenY = e.clientY - rect.top;
+
+      const surfaceX = dropScreenX + viewport.scrollLeft;
+      const surfaceY = dropScreenY + viewport.scrollTop;
+
+      // Coordinate offset relative to canvas center (2000, 2000)
+      const dx = (surfaceX - 2000) / scale - preset.width / 2;
+      const dy = (surfaceY - 2000) / scale - preset.height / 2;
+
+      const newFrame: CanvasDeviceFrame = {
+        id: `frame-${preset.id}-${Date.now()}`,
+        type: preset.type,
+        name: preset.name,
+        x: Math.round(dx),
+        y: Math.round(dy),
+        width: preset.width,
+        height: preset.height,
+      };
+
+      setFrames([...frames, newFrame]);
+      setSelectedFrameId(newFrame.id);
+      setActiveTool("select");
+    } catch (err) {
+      console.error("Failed to drop frame:", err);
+    }
+  };
+
+  // Moving frames smoothly on the canvas via their header handle
+  const handleFrameHeaderPointerDown = (
+    frameId: string,
+    e: React.PointerEvent
+  ) => {
+    e.stopPropagation();
+    setSelectedFrameId(frameId);
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const target = frames.find((f) => f.id === frameId);
+    if (!target) return;
+    const origX = target.x;
+    const origY = target.y;
+
+    const handlePointerMove = (ev: PointerEvent) => {
+      const deltaX = (ev.clientX - startX) / scale;
+      const deltaY = (ev.clientY - startY) / scale;
+      setFrames(
+        frames.map((f) =>
+          f.id === frameId
+            ? { ...f, x: Math.round(origX + deltaX), y: Math.round(origY + deltaY) }
+            : f
+        )
+      );
+    };
+
+    const handlePointerUp = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+  };
+
+  const duplicateFrame = (frameId: string) => {
+    const target = frames.find((f) => f.id === frameId);
+    if (!target) return;
+    const newFrame: CanvasDeviceFrame = {
+      ...target,
+      id: `frame-${target.type}-${Date.now()}`,
+      name: `${target.name} (copia)`,
+      x: target.x + 50,
+      y: target.y + 50,
+    };
+    setFrames([...frames, newFrame]);
+    setSelectedFrameId(newFrame.id);
+  };
+
+
+
   const zoomIn = () => {
     setScale((prev) => Math.min(MAX_SCALE, Math.round((prev + 0.1) * 10) / 10));
   };
@@ -189,7 +393,12 @@ export function DesignerCanvas({
     ? "cursor-grabbing"
     : isSpacePressed
       ? "cursor-grab"
-      : "cursor-default";
+      : activeTool === "frame"
+        ? "cursor-crosshair"
+        : "cursor-default";
+
+  const selectedFrame =
+    frames.find((f) => f.id === selectedFrameId) || frames[0];
 
   return (
     <div
@@ -214,62 +423,196 @@ export function DesignerCanvas({
             backgroundSize: "24px 24px",
           }}
           className="relative min-w-[4000px] min-h-[4000px]"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
         >
-          {/* Centered Artboard Anchor */}
-          <div
-            className="absolute left-1/2 top-1/2 flex flex-col items-center transition-transform duration-75"
-            style={{
-              transform: `translate(-50%, -50%) scale(${scale})`,
-              transformOrigin: "center center",
-            }}
-          >
-            {/* Artboard Frame Header */}
-            <div className="mb-3 flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1 shadow-xs backdrop-blur-md">
-              <Smartphone className="size-3.5 text-primary" />
-              <span className="text-xs font-medium text-foreground">iPhone 16 Pro</span>
-              <span className="text-[10px] text-muted-foreground">• 375 × 812</span>
-            </div>
-
-            {/* Device Mockup Artboard */}
-            <div className="relative h-[812px] w-[375px] shrink-0 overflow-hidden rounded-[2.75rem] border-[10px] border-zinc-900 bg-background shadow-2xl ring-1 ring-border/50 dark:border-zinc-800">
-              {/* Dynamic Island / Notch */}
-              <div className="absolute top-2 inset-x-0 z-50 mx-auto flex h-6 w-28 items-center justify-center rounded-full bg-black">
-                <div className="size-2.5 rounded-full bg-zinc-900" />
+          {/* Drop visual indicator over canvas */}
+          {isDragOver && (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-primary/5 border-2 border-dashed border-primary/40 transition-all">
+              <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-background/90 px-4 py-2 shadow-2xl backdrop-blur-md">
+                <Plus className="size-4 text-primary animate-pulse" />
+                <span className="text-xs font-medium text-foreground">
+                  Suelta para colocar el marco en esta posición
+                </span>
               </div>
+            </div>
+          )}
 
-              {/* Screen Content */}
-              <div className="relative flex h-full w-full flex-col overflow-hidden bg-background pt-7">
-                {children ? (
-                  children
-                ) : (
-                  <div className="flex h-full w-full flex-col">
-                    {/* Default AppBar */}
-                    <div className="flex h-14 w-full items-center justify-between border-b border-border/40 bg-card px-4">
-                      <span className="text-sm font-semibold tracking-tight text-foreground">
-                        Vela Studio
-                      </span>
-                    </div>
+          {/* Empty Canvas State */}
+          {frames.length === 0 && (
+            <div
+              className="absolute left-1/2 top-1/2 flex flex-col items-center justify-center p-8 text-center rounded-3xl border border-dashed border-border/60 bg-background/60 backdrop-blur-md shadow-xl"
+              style={{
+                transform: `translate(-50%, -50%) scale(${scale})`,
+                transformOrigin: "center center",
+              }}
+            >
+              <div className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+                <Smartphone className="size-6" />
+              </div>
+              <h3 className="text-sm font-semibold text-foreground">Canvas sin marcos</h3>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed max-w-[240px]">
+                Presiona <kbd className="px-1.5 py-0.5 rounded bg-muted border font-mono text-[10px]">F</kbd> o arrastra un dispositivo desde la barra lateral derecha para añadir un marco.
+              </p>
+              <div className="mt-4 flex items-center gap-2">
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => {
+                    const newF: CanvasDeviceFrame = {
+                      id: `frame-iphone-${Date.now()}`,
+                      type: "iphone",
+                      name: "iPhone 16 Pro",
+                      x: -402 / 2,
+                      y: -874 / 2,
+                      width: 402,
+                      height: 874,
+                    };
+                    setFrames([newF]);
+                    setSelectedFrameId(newF.id);
+                  }}
+                >
+                  Añadir iPhone
+                </Button>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => {
+                    const newF: CanvasDeviceFrame = {
+                      id: `frame-android-${Date.now()}`,
+                      type: "android",
+                      name: "Android Phone",
+                      x: -380 / 2,
+                      y: -830 / 2,
+                      width: 380,
+                      height: 830,
+                    };
+                    setFrames([newF]);
+                    setSelectedFrameId(newF.id);
+                  }}
+                >
+                  Añadir Android
+                </Button>
+              </div>
+            </div>
+          )}
 
-                    {/* Canvas Placeholder Body */}
-                    <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
-                      <div className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                        <Smartphone className="size-6" />
-                      </div>
-                      <h3 className="text-sm font-semibold text-foreground">Canvas Infinito</h3>
-                      <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed max-w-[220px]">
-                        Espacio infinito para diseñar y componer la interfaz de tu aplicación Flutter.
-                      </p>
-                    </div>
+          {/* Device Frames on Infinite Canvas */}
+          {frames.map((frame) => {
+            const isSelected = frame.id === selectedFrameId;
 
-                    {/* Home Indicator */}
-                    <div className="pb-2 pt-1 flex justify-center">
-                      <div className="h-1 w-32 rounded-full bg-foreground/20" />
-                    </div>
+            return (
+              <div
+                key={frame.id}
+                className="absolute flex flex-col items-center select-none"
+                style={{
+                  left: `${2000 + frame.x * scale}px`,
+                  top: `${2000 + frame.y * scale}px`,
+                  transform: `scale(${scale})`,
+                  transformOrigin: "top left",
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedFrameId(frame.id);
+                }}
+              >
+                {/* Artboard Frame Header Badge with Drag Handle */}
+                <div
+                  className={cn(
+                    "mb-2.5 flex items-center justify-between gap-2 rounded-full border bg-background/85 px-3 py-1 shadow-xs backdrop-blur-md transition-all cursor-grab active:cursor-grabbing",
+                    isSelected
+                      ? "border-primary/60 ring-2 ring-primary/20 bg-background shadow-md"
+                      : "border-border/60 hover:border-primary/40 hover:bg-background"
+                  )}
+                  onPointerDown={(e) => handleFrameHeaderPointerDown(frame.id, e)}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Smartphone
+                      className={cn(
+                        "size-3.5",
+                        frame.type === "iphone" ? "text-sky-500" : "text-emerald-500"
+                      )}
+                    />
+                    <span className="text-xs font-medium text-foreground">
+                      {frame.name}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      • {frame.width} × {frame.height}
+                    </span>
                   </div>
-                )}
+
+                  {/* Header Actions: Duplicate & Delete */}
+                  <div className="flex items-center gap-0.5 ml-2 border-l border-border/40 pl-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        duplicateFrame(frame.id);
+                      }}
+                      title="Duplicar marco"
+                      className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    >
+                      <Copy className="size-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteFrame(frame.id);
+                      }}
+                      title="Eliminar marco (Delete / Backspace)"
+                      className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                    >
+                      <Trash2 className="size-3" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Device Mockup */}
+                <div
+                  className={cn(
+                    "relative transition-all duration-150 rounded-[44px]",
+                    isSelected && "ring-2 ring-primary/30"
+                  )}
+                >
+                  {frame.type === "iphone" ? (
+                    <Iphone
+                      contentWidth={frame.width}
+                      contentHeight={frame.height}
+                      className="drop-shadow-2xl"
+                    >
+                      <div className="flex h-full w-full flex-col bg-background pt-7 pb-2 justify-between overflow-hidden">
+                        <div className="flex-1 w-full min-h-0 overflow-hidden">
+                          {children && isSelected ? children : null}
+                        </div>
+                        {/* Home Indicator */}
+                        <div className="pb-1 pt-1 flex justify-center shrink-0 pointer-events-none">
+                          <div className="h-1 w-28 rounded-full bg-foreground/20" />
+                        </div>
+                      </div>
+                    </Iphone>
+                  ) : (
+                    <Android
+                      width={380}
+                      height={830}
+                      className="drop-shadow-2xl"
+                    >
+                      <div className="flex h-full w-full flex-col bg-background pt-8 pb-3 justify-between overflow-hidden">
+                        <div className="flex-1 w-full min-h-0 overflow-hidden">
+                          {children && isSelected ? children : null}
+                        </div>
+                        {/* Android Navigation Gesture Bar */}
+                        <div className="flex justify-center shrink-0 pointer-events-none">
+                          <div className="h-1 w-20 rounded-full bg-foreground/30" />
+                        </div>
+                      </div>
+                    </Android>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
       </ScrollArea>
 
@@ -344,6 +687,7 @@ export function DesignerCanvas({
         onToggleVisible={() => setShowRulers(false)}
         isLeftSidebarOpen={isLeftSidebarOpen}
         isRightSidebarOpen={isRightSidebarOpen}
+        activeFrame={selectedFrame}
       />
 
       {/* Helpful Hint Pill when Space is held */}

@@ -7,12 +7,16 @@ interface DesignerSidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   side?: "left" | "right";
   open?: boolean;
   onToggleMinimize?: () => void;
+  title?: string;
+  icon?: React.ReactNode;
 }
 
 export function DesignerSidebar({
   side = "left",
   open = true,
   onToggleMinimize,
+  title,
+  icon,
   className,
   children,
   ...props
@@ -39,18 +43,25 @@ export function DesignerSidebar({
     >
       <div className="h-9 border-b border-sidebar-border/60 px-3 flex flex-row items-center justify-between shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          {isRight ? (
+          {icon ? (
+            <>
+              {icon}
+              <span className="text-xs font-semibold text-foreground truncate tracking-tight">
+                {title}
+              </span>
+            </>
+          ) : isRight ? (
             <>
               <SlidersHorizontal className="size-3.5 text-primary shrink-0" />
               <span className="text-xs font-semibold text-foreground truncate tracking-tight">
-                Propiedades
+                {title || "Propiedades"}
               </span>
             </>
           ) : (
             <>
               <Layers className="size-3.5 text-primary shrink-0" />
               <span className="text-xs font-semibold text-foreground truncate tracking-tight">
-                Capas
+                {title || "Capas"}
               </span>
             </>
           )}

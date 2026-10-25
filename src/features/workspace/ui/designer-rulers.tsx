@@ -31,6 +31,7 @@ interface DesignerRulersProps {
   className?: string;
   isLeftSidebarOpen?: boolean;
   isRightSidebarOpen?: boolean;
+  activeFrame?: { x: number; y: number; width: number; height: number };
 }
 
 export function DesignerRulers({
@@ -41,6 +42,7 @@ export function DesignerRulers({
   className,
   isLeftSidebarOpen = false,
   isRightSidebarOpen = false,
+  activeFrame,
 }: DesignerRulersProps) {
   const hCanvasRef = React.useRef<HTMLCanvasElement>(null);
   const vCanvasRef = React.useRef<HTMLCanvasElement>(null);
@@ -105,14 +107,16 @@ export function DesignerRulers({
     const scrollLeft = viewport.scrollLeft;
     const scrollTop = viewport.scrollTop;
 
-    // Phone mockup artboard bounds in canvas coordinates (4000x4000 centered)
-    const artboardW = 375;
-    const artboardH = 812;
-    const artboardXStart = 2000 - (artboardW * scale) / 2;
+    // Active artboard bounds in canvas coordinates (4000x4000 centered)
+    const artboardW = activeFrame?.width ?? 393;
+    const artboardH = activeFrame?.height ?? 800;
+    const frameX = activeFrame?.x ?? -artboardW / 2;
+    const frameY = activeFrame?.y ?? -artboardH / 2;
+
+    const artboardXStart = 2000 + frameX * scale;
     const artboardXEnd = artboardXStart + artboardW * scale;
 
-    // Header badge is ~38px above the phone chassis
-    const artboardYStart = 2000 - 387 * scale;
+    const artboardYStart = 2000 + frameY * scale;
     const artboardYEnd = artboardYStart + artboardH * scale;
 
     const { major, minor } = getRulerStep(scale);
@@ -236,7 +240,17 @@ export function DesignerRulers({
         vCtx.stroke();
       }
     }
-  }, [scale, visible, viewportRef, isLeftSidebarOpen, isRightSidebarOpen]);
+  }, [
+    scale,
+    visible,
+    viewportRef,
+    isLeftSidebarOpen,
+    isRightSidebarOpen,
+    activeFrame?.x,
+    activeFrame?.y,
+    activeFrame?.width,
+    activeFrame?.height,
+  ]);
 
   // Hook into viewport scroll and mouse events directly (zero React re-renders)
   React.useEffect(() => {
