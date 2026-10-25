@@ -1,7 +1,5 @@
 import * as React from "react";
 import {
-  BadgeCheck,
-  Bell,
   Check,
   CreditCard,
   GitBranch,
@@ -9,7 +7,6 @@ import {
   PanelBottom,
   PanelLeft,
   PanelRight,
-  Sparkles,
   Play,
   Bug,
   Hammer,
@@ -24,8 +21,9 @@ import {
   Layout,
   Code2,
   FolderOpen,
-  Compass,
-  X,
+  User,
+  Users,
+  HelpCircle,
 } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
@@ -349,15 +347,17 @@ export function WorkspaceTitlebar({
                   </DropdownMenuTrigger>
 
                   <DropdownMenuContent align="start" sideOffset={6} className="w-60 p-1 text-xs">
-                    <DropdownMenuLabel className="px-2 py-1.5 text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <GitBranch className="size-3" />
-                        Ramas
-                      </span>
-                      <span className="text-[9.5px] font-normal lowercase opacity-70">
-                        {branches.length} en total
-                      </span>
-                    </DropdownMenuLabel>
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel className="px-2 py-1.5 text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <GitBranch className="size-3" />
+                          Ramas
+                        </span>
+                        <span className="text-[9.5px] font-normal lowercase opacity-70">
+                          {branches.length} en total
+                        </span>
+                      </DropdownMenuLabel>
+                    </DropdownMenuGroup>
 
                     {branchError && (
                       <div className="mx-1 my-1 p-2 bg-destructive/10 text-destructive text-[11px] rounded border border-destructive/20 leading-tight">
@@ -717,84 +717,56 @@ export function WorkspaceTitlebar({
             align="end"
             sideOffset={6}
           >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg text-xs">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{user.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {user.email}
-                  </span>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="p-0 font-normal">
+                <div className="flex items-center gap-2 px-1 py-1.5">
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage src={user.avatar} alt={user.name} />
+                    <AvatarFallback className="rounded-lg text-xs">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-medium">{user.name}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {user.email}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </DropdownMenuLabel>
-
-            <DropdownMenuSeparator />
-
-            <DropdownMenuGroup>
-              <DropdownMenuItem onClick={handleOpenFolder} className="cursor-pointer">
-                <FolderOpen className="size-4" />
-                Abrir carpeta...
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => useWorkspaceStore.getState().openWelcomeTab()}
-                className="cursor-pointer"
-              >
-                <Compass className="size-4 text-primary" />
-                Página de bienvenida
-              </DropdownMenuItem>
-              {projectName && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    useWorkspaceStore.getState().setProjectName(null);
-                    useWorkspaceStore.getState().setProjectPath(null);
-                    useWorkspaceStore.getState().setFileTree([]);
-                    useWorkspaceStore.getState().openWelcomeTab();
-                  }}
-                  className="cursor-pointer text-destructive focus:text-destructive"
-                >
-                  <X className="size-4" />
-                  Cerrar carpeta
-                </DropdownMenuItem>
-              )}
+              </DropdownMenuLabel>
             </DropdownMenuGroup>
 
             <DropdownMenuSeparator />
 
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <Sparkles className="size-4" />
-                Upgrade to Pro
+              <DropdownMenuItem className="cursor-pointer">
+                <User className="size-4" />
+                Profile
               </DropdownMenuItem>
-            </DropdownMenuGroup>
-
-            <DropdownMenuSeparator />
-
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheck className="size-4" />
-                Account
+              <DropdownMenuItem className="cursor-pointer">
+                <Users className="size-4" />
+                Community
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer">
                 <CreditCard className="size-4" />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Bell className="size-4" />
-                Notifications
+                Subscription
               </DropdownMenuItem>
             </DropdownMenuGroup>
 
             <DropdownMenuSeparator />
 
-            <DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuItem className="cursor-pointer">
+                <HelpCircle className="size-4" />
+                Help Center
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive">
               <LogOut className="size-4" />
-              Log out
+              Sign out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -1,5 +1,5 @@
 import Editor from "@monaco-editor/react";
-import { FileCode, X, Layout, FolderOpen, Compass } from "lucide-react";
+import { FileCode, X, Layout, FolderOpen } from "lucide-react";
 import * as React from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { FileIcon } from "./file-icon";
@@ -381,59 +381,124 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
   return (
     <div className="flex h-full w-full flex-1 flex-col overflow-hidden bg-background">
       {/* Editor Tabs */}
-      <div className="flex h-9 items-center gap-px border-b border-border/60 bg-muted/20 px-1 pt-1">
-        {tabs.map((tab) => {
-          const isActive = tab.id === activeTabId;
-          return (
-            <div
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "group relative flex h-full min-w-[120px] max-w-[200px] cursor-pointer items-center gap-2 rounded-t-md border-x border-t border-transparent px-3 text-xs transition-colors select-none",
-                isActive
-                  ? "border-border/60 bg-background text-foreground shadow-2xs font-medium"
-                  : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-              )}
-            >
-              {tab.id === "welcome" ? (
-                <Compass className="size-3.5 text-primary shrink-0" />
-              ) : (
-                <FileIcon fileName={tab.name} size={14} className="shrink-0" />
-              )}
-              <span className="truncate">{tab.name}</span>
-              <div className="ml-auto flex items-center">
-                {tab.isModified && !isActive && (
-                  <div className="size-1.5 rounded-full bg-primary/50 group-hover:hidden" />
+      <div className="relative flex h-[38px] items-end bg-[#0e0e11] dark:bg-[#09090b] px-2 select-none shrink-0 border-b-0">
+        {/* Continuous baseline border outside the active tab */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/80 dark:bg-white/[0.14] z-0" />
+
+        {/* Scrollable tabs container */}
+        <div className="relative z-10 flex items-end h-full min-w-0 flex-1 overflow-x-auto no-scrollbar">
+          {tabs.map((tab, index) => {
+            const isActive = tab.id === activeTabId;
+            const prevTab = tabs[index - 1];
+            const showDivider =
+              index > 0 && !isActive && prevTab && prevTab.id !== activeTabId;
+
+            return (
+              <React.Fragment key={tab.id}>
+                {showDivider && (
+                  <div className="h-3.5 w-px bg-border/40 dark:bg-white/10 shrink-0 mx-0.5 mb-2" />
                 )}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    closeTab(tab.id);
-                  }}
+                <div
+                  onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "flex size-4 items-center justify-center rounded-sm transition-colors hover:bg-muted text-muted-foreground hover:text-foreground",
+                    "group relative flex cursor-pointer items-center gap-2 select-none transition-colors duration-150",
                     isActive
-                      ? "opacity-100"
-                      : "opacity-0 group-hover:opacity-100",
+                      ? "z-10 h-[34px] self-end rounded-t-[10px] bg-background border-t border-x border-border/80 dark:border-white/[0.14] px-3.5 text-xs font-medium text-foreground -mb-px mx-2.5 min-w-[120px] max-w-[220px]"
+                      : "z-0 h-[28px] mb-1 rounded-lg px-3 text-xs text-muted-foreground min-w-[110px] max-w-[200px] hover:bg-muted/60 hover:text-foreground dark:hover:bg-white/[0.08]"
                   )}
                 >
-                  <X className="size-2.5" />
-                </button>
-              </div>
-              {isActive && (
-                <div className="absolute -bottom-[1px] left-0 h-[2px] w-full bg-primary" />
-              )}
-            </div>
-          );
-        })}
-        
+                  {/* Flared inverted fillet corners on active tab */}
+                  {isActive && (
+                    <>
+                      <svg
+                        viewBox="0 0 10 10"
+                        className="pointer-events-none absolute -left-2.5 bottom-0 size-2.5 z-20 overflow-visible"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M 0 10 C 5.523 10 10 5.523 10 0 L 11 0 L 11 11 L 0 11 Z"
+                          className="fill-background"
+                        />
+                        <path
+                          d="M 0 10 C 5.523 10 10 5.523 10 0"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1"
+                          className="text-border/80 dark:text-white/[0.14]"
+                        />
+                      </svg>
+                      <svg
+                        viewBox="0 0 10 10"
+                        className="pointer-events-none absolute -right-2.5 bottom-0 size-2.5 z-20 overflow-visible"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M 0 0 C 0 5.523 4.477 10 10 10 L 10 11 L -1 11 L -1 0 Z"
+                          className="fill-background"
+                        />
+                        <path
+                          d="M 0 0 C 0 5.523 4.477 10 10 10"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1"
+                          className="text-border/80 dark:text-white/[0.14]"
+                        />
+                      </svg>
+                    </>
+                  )}
+
+                  {tab.id === "welcome" ? (
+                    <img
+                      src="/app-logo.png"
+                      alt="Vela"
+                      className={cn(
+                        "size-3.5 object-contain shrink-0 transition-opacity",
+                        !isActive && "opacity-75 group-hover:opacity-100"
+                      )}
+                    />
+                  ) : (
+                    <FileIcon
+                      fileName={tab.name}
+                      size={14}
+                      className={cn(
+                        "shrink-0 transition-opacity",
+                        !isActive && "opacity-75 group-hover:opacity-100"
+                      )}
+                    />
+                  )}
+                  <span className="truncate">{tab.name}</span>
+                  <div className="ml-auto flex items-center pl-1">
+                    {tab.isModified && !isActive && (
+                      <div className="size-1.5 rounded-full bg-primary/70 group-hover:hidden" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        closeTab(tab.id);
+                      }}
+                      className={cn(
+                        "flex size-4 items-center justify-center rounded-sm transition-colors hover:bg-muted/80 text-muted-foreground hover:text-foreground",
+                        isActive
+                          ? "opacity-100"
+                          : "opacity-0 group-hover:opacity-100"
+                      )}
+                    >
+                      <X className="size-2.5" />
+                    </button>
+                  </div>
+                </div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+
         {/* Toggle Designer Button */}
         {activeTab && activeTab.path.endsWith(".dart") && (
-          <div className="ml-auto mr-2 flex items-center gap-2">
-            <Button 
-              variant={showDesigner ? "secondary" : "outline"} 
-              size="xs" 
+          <div className="ml-auto mr-1 flex items-center gap-2 shrink-0 z-10">
+            <Button
+              variant={showDesigner ? "secondary" : "outline"}
+              size="xs"
               className={cn(
                 "h-6 text-[10px] gap-1",
                 showDesigner && "border-primary/30 text-primary"
@@ -541,7 +606,11 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
                       onClick={() => useWorkspaceStore.getState().openWelcomeTab()}
                       className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
                     >
-                      <Compass className="size-3.5 mr-1.5 text-primary" />
+                      <img
+                        src="/app-logo.png"
+                        alt="Vela"
+                        className="size-3.5 mr-1.5 object-contain shrink-0"
+                      />
                       Welcome Page
                     </Button>
                   </div>

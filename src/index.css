@@ -146,3 +146,10 @@
     @apply bg-primary text-primary-foreground;
   }
 }
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
