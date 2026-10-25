@@ -2,7 +2,7 @@ import * as React from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ResizableSidebar } from "@/components/ui/ide-resizable";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
 import { WorkspaceOverview } from "./workspace-overview";
@@ -11,7 +11,10 @@ import { WorkspaceSidebar } from "./workspace-sidebar";
 import { WorkspaceTitlebar } from "./workspace-titlebar";
 import { WorkspaceSecondaryRail } from "./workspace-secondary-rail";
 import { WorkspaceTerminal } from "./workspace-terminal";
+import { Layers, PanelLeft, PanelsTopLeft, Play } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { DesignerSidebar } from "./designer-sidebar";
+import { DesignerCanvas } from "./designer-canvas";
 import { VelaSetupScreen } from "./vela-setup";
 import { useWorkspaceStore } from "../model/workspace.store";
 
@@ -68,6 +71,8 @@ export function WorkspaceShell() {
   const [bottomPanel, setBottomPanel] = React.useState(false);
   const [rightPanel, setRightPanel] = React.useState(false);
   const [designerSidebarOpen, setDesignerSidebarOpen] = React.useState(true);
+  const [designerRightSidebarOpen, setDesignerRightSidebarOpen] = React.useState(true);
+  const [designerSidebarsMinimized, setDesignerSidebarsMinimized] = React.useState(false);
 
   const workspaceMode = useWorkspaceStore((state) => state.workspaceMode);
   const setWorkspaceMode = useWorkspaceStore((state) => state.setWorkspaceMode);
@@ -81,12 +86,33 @@ export function WorkspaceShell() {
     }
   };
 
-  const currentLeftPanel = workspaceMode === "designer" ? designerSidebarOpen : leftPanel;
+  const currentLeftPanel =
+    workspaceMode === "designer" ? !designerSidebarsMinimized && designerSidebarOpen : leftPanel;
   const handleToggleLeft = () => {
     if (workspaceMode === "designer") {
-      setDesignerSidebarOpen((v) => !v);
+      if (designerSidebarsMinimized) {
+        setDesignerSidebarsMinimized(false);
+        setDesignerSidebarOpen(true);
+      } else {
+        setDesignerSidebarOpen((v) => !v);
+      }
     } else {
       setLeftPanel((v) => !v);
+    }
+  };
+
+  const currentRightPanel =
+    workspaceMode === "designer" ? !designerSidebarsMinimized && designerRightSidebarOpen : rightPanel;
+  const handleToggleRight = () => {
+    if (workspaceMode === "designer") {
+      if (designerSidebarsMinimized) {
+        setDesignerSidebarsMinimized(false);
+        setDesignerRightSidebarOpen(true);
+      } else {
+        setDesignerRightSidebarOpen((v) => !v);
+      }
+    } else {
+      setRightPanel((v) => !v);
     }
   };
 
@@ -104,10 +130,10 @@ export function WorkspaceShell() {
           onBranchChange={setGitBranch}
           leftPanel={currentLeftPanel}
           bottomPanel={bottomPanel}
-          rightPanel={rightPanel}
+          rightPanel={currentRightPanel}
           onToggleLeft={handleToggleLeft}
           onToggleBottom={() => setBottomPanel((v) => !v)}
-          onToggleRight={() => setRightPanel((v) => !v)}
+          onToggleRight={handleToggleRight}
           mode={workspaceMode}
           onModeChange={setWorkspaceMode}
         />
@@ -194,15 +220,85 @@ export function WorkspaceShell() {
         </div>
       </div>
 
-      {/* Designer Workspace: layout with empty Sidebar and main canvas area */}
+      {/* Designer Workspace: layout with Slide-over Sidebars and Full-Width Canvas */}
       {workspaceMode === "designer" && (
-        <div className="flex flex-1 min-h-0 w-full overflow-hidden">
-          <DesignerSidebar className="top-[36px] h-[calc(100svh-36px)]" />
-          <SidebarInset className="flex flex-1 min-h-0 flex-col bg-background overflow-hidden">
-            <div className="flex-1 min-h-0 w-full flex items-center justify-center p-4">
-              {/* Espacio para la vista de Diseño */}
+        <div className="relative flex flex-1 min-h-0 w-full overflow-hidden bg-background">
+          {/* Full-width Infinite Canvas (Never resizes, zero layout shifting) */}
+          <DesignerCanvas
+            isRightSidebarOpen={!designerSidebarsMinimized && designerRightSidebarOpen}
+          />
+
+          {/* Left Designer Sidebar (Slide-over) */}
+          <DesignerSidebar
+            open={!designerSidebarsMinimized && designerSidebarOpen}
+            onToggleMinimize={() => setDesignerSidebarsMinimized(true)}
+          />
+
+          {/* Right Designer Sidebar (Slide-over) */}
+          <DesignerSidebar
+            side="right"
+            open={!designerSidebarsMinimized && designerRightSidebarOpen}
+          />
+
+          {/* Floating Header Pills (smooth fade & slide when sidebars are minimized) */}
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-x-0 top-3 z-30 flex items-center justify-between px-3 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+              designerSidebarsMinimized
+                ? "opacity-100 translate-y-0"
+                : "opacity-0 -translate-y-2 pointer-events-none"
+            )}
+          >
+            {/* Left Pill */}
+            <div className="pointer-events-auto flex items-center gap-2 h-9 px-3 rounded-xl border border-border/60 bg-background/90 backdrop-blur-md shadow-md text-foreground select-none">
+              <Layers className="size-4 text-primary shrink-0" />
+              <span className="text-xs font-medium max-w-[180px] truncate">
+                {projectName || "Vela Studio"}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setDesignerSidebarsMinimized(false);
+                  setDesignerSidebarOpen(true);
+                  setDesignerRightSidebarOpen(true);
+                }}
+                title="Maximizar sidebars"
+                className="ml-1 flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <PanelLeft className="size-3.5" />
+              </button>
             </div>
-          </SidebarInset>
+
+            {/* Right Pill */}
+            <div className="pointer-events-auto flex items-center gap-2 h-9 px-2.5 rounded-xl border border-border/60 bg-background/90 backdrop-blur-md shadow-md text-foreground select-none">
+              <div className="size-5 rounded-full bg-amber-500/20 text-amber-500 font-semibold text-[10px] flex items-center justify-center border border-amber-500/30">
+                B
+              </div>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="size-6 text-muted-foreground hover:text-foreground"
+                title="Ejecutar"
+              >
+                <Play className="size-3 fill-current" />
+              </Button>
+              <div className="h-3.5 w-px bg-border/60" />
+              <Button
+                variant="outline"
+                size="xs"
+                onClick={() => {
+                  setDesignerSidebarsMinimized(false);
+                  setDesignerSidebarOpen(true);
+                  setDesignerRightSidebarOpen(true);
+                }}
+                className="h-6 gap-1 px-2 text-[11px] font-medium border-border/60 hover:bg-muted shadow-xs"
+                title="Volver a maximizar las 2 sidebars"
+              >
+                <PanelsTopLeft className="size-3.5" />
+                <span>Maximizar</span>
+              </Button>
+            </div>
+          </div>
         </div>
       )}
       </div>

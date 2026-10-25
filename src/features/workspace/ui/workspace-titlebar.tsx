@@ -657,40 +657,44 @@ export function WorkspaceTitlebar({
 
       {/* ── Right: Layout Toggles + User Avatar ── */}
       <div className="relative flex items-center gap-1.5 shrink-0 z-10 ml-auto">
-        {/* Panel toggles */}
-        <div className="flex items-center gap-0.5 rounded-lg border border-border/50 bg-muted/20 p-0.5">
-          {layoutButtons.map(({ key, icon: Icon, label, shortcut }) => (
-            <Tooltip key={key}>
-              <TooltipTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className={cn(
-                      "size-6 rounded-md text-muted-foreground transition-all hover:bg-muted hover:text-foreground",
-                      panelState[key] && "bg-background text-foreground shadow-xs",
-                    )}
-                    aria-label={label}
-                    aria-pressed={panelState[key]}
-                    onClick={panelToggle[key]}
-                  />
-                }
-              >
-                <Icon className="size-3.5" />
-              </TooltipTrigger>
-              <TooltipContent side="bottom" sideOffset={6}>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{label}</span>
-                  <span className="text-[10px] opacity-60">{shortcut}</span>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          ))}
-        </div>
+        {/* Panel toggles (hidden in designer mode) */}
+        {currentMode !== "designer" && (
+          <>
+            <div className="flex items-center gap-0.5 rounded-lg border border-border/50 bg-muted/20 p-0.5">
+              {layoutButtons.map(({ key, icon: Icon, label, shortcut }) => (
+                <Tooltip key={key}>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          "size-6 rounded-md text-muted-foreground transition-all hover:bg-muted hover:text-foreground",
+                          panelState[key] && "bg-background text-foreground shadow-xs",
+                        )}
+                        aria-label={label}
+                        aria-pressed={panelState[key]}
+                        onClick={panelToggle[key]}
+                      />
+                    }
+                  >
+                    <Icon className="size-3.5" />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={6}>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{label}</span>
+                      <span className="text-[10px] opacity-60">{shortcut}</span>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
 
-        {/* Divider */}
-        <div className="mx-1 h-3.5 w-px bg-border/60" />
+            {/* Divider */}
+            <div className="mx-1 h-3.5 w-px bg-border/60" />
+          </>
+        )}
 
         {/* User avatar dropdown */}
         <DropdownMenu>
