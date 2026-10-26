@@ -11,12 +11,14 @@ import { WorkspaceSidebar } from "./workspace-sidebar";
 import { WorkspaceTitlebar } from "./workspace-titlebar";
 import { WorkspaceSecondaryRail } from "./workspace-secondary-rail";
 import { WorkspaceTerminal } from "./workspace-terminal";
-import { Layers, PanelLeft, PanelsTopLeft, Play, Frame, SlidersHorizontal } from "lucide-react";
+import { Layers, PanelLeft, PanelsTopLeft, Play, Frame, SlidersHorizontal, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DesignerSidebar } from "./designer-sidebar";
-import { DesignerCanvas, type CanvasDeviceFrame } from "./designer-canvas";
+import { DesignerCanvas, type CanvasDeviceFrame, type CanvasWidgetElement } from "./designer-canvas";
 import { type DesignerTool } from "./designer-dock";
 import { DesignerFramePresets, type FramePresetItem } from "./designer-frame-presets";
+import { DesignerFrameProperties } from "./designer-frame-properties";
+import { createFlutterFileForFrame } from "../model/designer-frame-file";
 import { VelaSetupScreen } from "./vela-setup";
 import { useWorkspaceStore } from "../model/workspace.store";
 
@@ -76,18 +78,60 @@ export function WorkspaceShell() {
   const [designerRightSidebarOpen, setDesignerRightSidebarOpen] = React.useState(true);
   const [designerSidebarsMinimized, setDesignerSidebarsMinimized] = React.useState(false);
   const [designerActiveTool, setDesignerActiveTool] = React.useState<DesignerTool>("select");
-  const [designerFrames, setDesignerFrames] = React.useState<CanvasDeviceFrame[]>([
-    {
-      id: "frame-iphone-default",
-      type: "iphone",
-      name: "iPhone 16 Pro",
-      x: -402 / 2,
-      y: -874 / 2,
-      width: 402,
-      height: 874,
-    },
-  ]);
-  const [selectedFrameId, setSelectedFrameId] = React.useState<string>("frame-iphone-default");
+  const [designerFrames, setDesignerFrames] = React.useState<CanvasDeviceFrame[]>([]);
+  const [selectedFrameId, setSelectedFrameId] = React.useState<string>("");
+  const [selectedElementId, setSelectedElementId] = React.useState<string>("");
+  const selectedFrame = designerFrames.find((f) => f.id === selectedFrameId);
+
+  const handleUpdateFrame = (updatedFrame: CanvasDeviceFrame) => {
+    setDesignerFrames((prev) =>
+      prev.map((f) => (f.id === updatedFrame.id ? updatedFrame : f))
+    );
+  };
+
+  const handleSelectFrameId = (id: string) => {
+    setSelectedFrameId(id);
+    if (id) {
+      setDesignerRightSidebarOpen(true);
+      setDesignerSidebarsMinimized(false);
+    }
+  };
+
+  const handleAddElementToFrame = (
+    frameId: string,
+    element: Omit<CanvasWidgetElement, "id">
+  ) => {
+    const targetFrameId = frameId || (designerFrames.length > 0 ? designerFrames[0].id : "");
+    if (!targetFrameId) return;
+
+    const newElement: CanvasWidgetElement = {
+      ...element,
+      id: `elem-${element.type}-${Date.now()}`,
+    };
+
+    setDesignerFrames((prev) =>
+      prev.map((f) =>
+        f.id === targetFrameId
+          ? { ...f, elements: [...(f.elements || []), newElement] }
+          : f
+      )
+    );
+    setSelectedFrameId(targetFrameId);
+    setSelectedElementId(newElement.id);
+  };
+
+  const handleDeleteElementFromFrame = (frameId: string, elementId: string) => {
+    setDesignerFrames((prev) =>
+      prev.map((f) =>
+        f.id === frameId
+          ? { ...f, elements: (f.elements || []).filter((el) => el.id !== elementId) }
+          : f
+      )
+    );
+    if (selectedElementId === elementId) {
+      setSelectedElementId("");
+    }
+  };
 
   const handleSelectTool = (tool: DesignerTool) => {
     setDesignerActiveTool(tool);
@@ -97,13 +141,16 @@ export function WorkspaceShell() {
     }
   };
 
-  const handleAddFramePreset = (preset: FramePresetItem) => {
+  const handleAddFramePreset = async (preset: FramePresetItem) => {
     const maxX =
       designerFrames.length > 0
         ? Math.max(...designerFrames.map((f) => f.x + f.width))
         : -preset.width / 2;
     const newX = designerFrames.length > 0 ? maxX + 80 : -preset.width / 2;
     const newY = -preset.height / 2;
+
+    const existingNames = designerFrames.map((f) => f.fileName).filter(Boolean) as string[];
+    const fileInfo = await createFlutterFileForFrame(preset.name, existingNames);
 
     const newFrame: CanvasDeviceFrame = {
       id: `frame-${preset.id}-${Date.now()}`,
@@ -113,6 +160,8 @@ export function WorkspaceShell() {
       y: Math.round(newY),
       width: preset.width,
       height: preset.height,
+      fileName: fileInfo.fileName,
+      filePath: fileInfo.filePath,
     };
 
     setDesignerFrames((prev) => [...prev, newFrame]);
@@ -278,23 +327,40 @@ export function WorkspaceShell() {
             frames={designerFrames}
             onFramesChange={setDesignerFrames}
             selectedFrameId={selectedFrameId}
-            onSelectFrameId={setSelectedFrameId}
+            onSelectFrameId={handleSelectFrameId}
+            selectedElementId={selectedElementId}
+            onSelectElementId={setSelectedElementId}
           />
 
-          {/* Left Designer Sidebar (Slide-over) */}
+          {/* Left Designer Sidebar (Slide-over with Primary Rail) */}
           <DesignerSidebar
             open={!designerSidebarsMinimized && designerSidebarOpen}
             onToggleMinimize={() => setDesignerSidebarsMinimized(true)}
+            frames={designerFrames}
+            selectedFrameId={selectedFrameId}
+            onSelectFrameId={handleSelectFrameId}
+            selectedElementId={selectedElementId}
+            onSelectElementId={setSelectedElementId}
+            onAddElementToFrame={handleAddElementToFrame}
+            onDeleteElement={handleDeleteElementFromFrame}
           />
 
-          {/* Right Designer Sidebar (Slide-over) */}
+          {/* Right Designer Sidebar (Slide-over with Frame Properties / Presets) */}
           <DesignerSidebar
             side="right"
             open={!designerSidebarsMinimized && designerRightSidebarOpen}
-            title={designerActiveTool === "frame" ? "Marco" : "Propiedades"}
+            title={
+              designerActiveTool === "frame"
+                ? "Marco"
+                : selectedFrame
+                  ? selectedFrame.name
+                  : "Propiedades"
+            }
             icon={
               designerActiveTool === "frame" ? (
                 <Frame className="size-3.5 text-primary shrink-0" />
+              ) : selectedFrame ? (
+                <Smartphone className="size-3.5 text-primary shrink-0" />
               ) : (
                 <SlidersHorizontal className="size-3.5 text-primary shrink-0" />
               )
@@ -302,6 +368,14 @@ export function WorkspaceShell() {
           >
             {designerActiveTool === "frame" ? (
               <DesignerFramePresets onSelectPreset={handleAddFramePreset} />
+            ) : selectedFrame ? (
+              <DesignerFrameProperties
+                frame={selectedFrame}
+                allFrames={designerFrames}
+                onChangeFrame={handleUpdateFrame}
+                selectedElementId={selectedElementId}
+                onSelectElementId={setSelectedElementId}
+              />
             ) : (
               <div className="flex flex-col items-center justify-center p-6 text-center text-muted-foreground/60 text-xs">
                 Selecciona un marco para inspeccionar sus propiedades

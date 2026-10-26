@@ -19,6 +19,14 @@ export const workspaceApi = {
   },
 
   /**
+   * Deletes a file or directory from the disk using Tauri IPC.
+   * @param path The absolute path to the file or directory.
+   */
+  async deleteFile(path: string): Promise<void> {
+    return invoke("delete_file", { path });
+  },
+
+  /**
    * Fetches the directory tree for the workspace.
    * @param rootPath The root directory of the workspace.
    */

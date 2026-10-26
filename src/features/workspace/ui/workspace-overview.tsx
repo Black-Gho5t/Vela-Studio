@@ -381,70 +381,82 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
   return (
     <div className="flex h-full w-full flex-1 flex-col overflow-hidden bg-background">
       {/* Editor Tabs */}
-      <div className="relative flex h-[38px] items-end bg-[#0e0e11] dark:bg-[#09090b] px-2 select-none shrink-0 border-b-0">
+      <div className="relative flex h-[38px] items-end bg-[#f4f4f6] dark:bg-[#09090b] pl-0 pr-2 select-none shrink-0 border-b-0">
         {/* Continuous baseline border outside the active tab */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/80 dark:bg-white/[0.14] z-0" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/80 dark:bg-white/[0.12] z-0" />
 
         {/* Scrollable tabs container */}
         <div className="relative z-10 flex items-end h-full min-w-0 flex-1 overflow-x-auto no-scrollbar">
           {tabs.map((tab, index) => {
+            const isFirst = index === 0;
             const isActive = tab.id === activeTabId;
             const prevTab = tabs[index - 1];
+            const hasLeftCurve = isActive && !isFirst;
+            const hasRightCurve = isActive;
             const showDivider =
               index > 0 && !isActive && prevTab && prevTab.id !== activeTabId;
 
             return (
               <React.Fragment key={tab.id}>
                 {showDivider && (
-                  <div className="h-3.5 w-px bg-border/40 dark:bg-white/10 shrink-0 mx-0.5 mb-2" />
+                  <div className="h-3.5 w-px bg-border/40 dark:bg-white/10 shrink-0 mx-0.5 mb-2.5" />
                 )}
                 <div
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
                     "group relative flex cursor-pointer items-center gap-2 select-none transition-colors duration-150",
                     isActive
-                      ? "z-10 h-[34px] self-end rounded-t-[10px] bg-background border-t border-x border-border/80 dark:border-white/[0.14] px-3.5 text-xs font-medium text-foreground -mb-px mx-2.5 min-w-[120px] max-w-[220px]"
-                      : "z-0 h-[28px] mb-1 rounded-lg px-3 text-xs text-muted-foreground min-w-[110px] max-w-[200px] hover:bg-muted/60 hover:text-foreground dark:hover:bg-white/[0.08]"
+                      ? cn(
+                          "z-10 h-[34px] self-end bg-background border-t border-border/80 dark:border-white/[0.12] px-3.5 text-xs font-medium text-foreground -mb-px min-w-[120px] max-w-[220px]",
+                          isFirst
+                            ? "ml-0 mr-3 rounded-tl-none rounded-tr-[8px] border-r border-l-0"
+                            : "ml-3 mr-3 rounded-t-[8px] border-x"
+                        )
+                      : cn(
+                          "z-0 h-[28px] mb-1 rounded-md px-3 text-xs text-muted-foreground min-w-[110px] max-w-[200px] hover:bg-muted/60 hover:text-foreground dark:hover:bg-white/[0.08]",
+                          isFirst ? "ml-1" : "mx-0.5"
+                        )
                   )}
                 >
-                  {/* Flared inverted fillet corners on active tab */}
-                  {isActive && (
-                    <>
-                      <svg
-                        viewBox="0 0 10 10"
-                        className="pointer-events-none absolute -left-2.5 bottom-0 size-2.5 z-20 overflow-visible"
-                        aria-hidden="true"
-                      >
-                        <path
-                          d="M 0 10 C 5.523 10 10 5.523 10 0 L 11 0 L 11 11 L 0 11 Z"
-                          className="fill-background"
-                        />
-                        <path
-                          d="M 0 10 C 5.523 10 10 5.523 10 0"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1"
-                          className="text-border/80 dark:text-white/[0.14]"
-                        />
-                      </svg>
-                      <svg
-                        viewBox="0 0 10 10"
-                        className="pointer-events-none absolute -right-2.5 bottom-0 size-2.5 z-20 overflow-visible"
-                        aria-hidden="true"
-                      >
-                        <path
-                          d="M 0 0 C 0 5.523 4.477 10 10 10 L 10 11 L -1 11 L -1 0 Z"
-                          className="fill-background"
-                        />
-                        <path
-                          d="M 0 0 C 0 5.523 4.477 10 10 10"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1"
-                          className="text-border/80 dark:text-white/[0.14]"
-                        />
-                      </svg>
-                    </>
+                  {/* Flared smoothed inverted fillet corners on active tab */}
+                  {hasLeftCurve && (
+                    <svg
+                      viewBox="0 0 12 10"
+                      className="pointer-events-none absolute -left-3 bottom-0 w-3 h-[10px] z-20 overflow-visible"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M 0 10 C 7 10 12 3 12 0 L 13 0 L 13 11 L 0 11 Z"
+                        className="fill-background"
+                      />
+                      <path
+                        d="M 0 10 C 7 10 12 3 12 0"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1"
+                        className="text-border/80 dark:text-white/[0.12]"
+                      />
+                    </svg>
+                  )}
+
+                  {hasRightCurve && (
+                    <svg
+                      viewBox="0 0 12 10"
+                      className="pointer-events-none absolute -right-3 bottom-0 w-3 h-[10px] z-20 overflow-visible"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M 0 0 C 0 3 5 10 12 10 L 12 11 L -1 11 L -1 0 Z"
+                        className="fill-background"
+                      />
+                      <path
+                        d="M 0 0 C 0 3 5 10 12 10"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1"
+                        className="text-border/80 dark:text-white/[0.12]"
+                      />
+                    </svg>
                   )}
 
                   {tab.id === "welcome" ? (
@@ -468,9 +480,6 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
                   )}
                   <span className="truncate">{tab.name}</span>
                   <div className="ml-auto flex items-center pl-1">
-                    {tab.isModified && !isActive && (
-                      <div className="size-1.5 rounded-full bg-primary/70 group-hover:hidden" />
-                    )}
                     <button
                       type="button"
                       onClick={(e) => {
@@ -478,13 +487,20 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
                         closeTab(tab.id);
                       }}
                       className={cn(
-                        "flex size-4 items-center justify-center rounded-sm transition-colors hover:bg-muted/80 text-muted-foreground hover:text-foreground",
+                        "group/close relative flex size-4 items-center justify-center rounded-sm transition-colors hover:bg-muted/80 text-muted-foreground hover:text-foreground",
                         isActive
                           ? "opacity-100"
                           : "opacity-0 group-hover:opacity-100"
                       )}
                     >
-                      <X className="size-2.5" />
+                      {tab.isModified ? (
+                        <>
+                          <div className="size-1.5 rounded-full bg-primary/80 group-hover/close:hidden" />
+                          <X className="size-2.5 hidden group-hover/close:block" />
+                        </>
+                      ) : (
+                        <X className="size-2.5" />
+                      )}
                     </button>
                   </div>
                 </div>

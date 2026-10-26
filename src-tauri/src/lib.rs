@@ -503,7 +503,23 @@ async fn read_file(path: String) -> Result<String, String> {
 
 #[tauri::command]
 async fn save_file(path: String, content: String) -> Result<(), String> {
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
     std::fs::write(&path, content).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn delete_file(path: String) -> Result<(), String> {
+    let p = std::path::Path::new(&path);
+    if p.exists() {
+        if p.is_dir() {
+            std::fs::remove_dir_all(p).map_err(|e| e.to_string())?;
+        } else {
+            std::fs::remove_file(p).map_err(|e| e.to_string())?;
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -728,6 +744,7 @@ pub fn run() {
             get_directory_tree,
             read_file,
             save_file,
+            delete_file,
             start_lsp,
             send_lsp_message,
             get_flutter_devices,
