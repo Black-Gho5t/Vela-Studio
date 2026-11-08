@@ -181,6 +181,13 @@ async fn start_terminal(
     rows: u16,
     cwd: Option<String>,
 ) -> Result<(), String> {
+    {
+        let pair_lock = state.pty_pair.lock().await;
+        if pair_lock.is_some() {
+            return Ok(());
+        }
+    }
+
     use portable_pty::{native_pty_system, CommandBuilder, PtySize};
     use std::io::Read;
 
@@ -225,6 +232,9 @@ async fn start_terminal(
     *state_pair = Some(pty_pair);
 
     let app_handle = app.clone();
+    let pty_pair_clone = state.pty_pair.clone();
+    let writer_clone = state.writer.clone();
+
     tokio::task::spawn_blocking(move || {
         let mut reader = reader;
         let mut buffer = [0u8; 4096];
@@ -234,6 +244,12 @@ async fn start_terminal(
             }
             let text = String::from_utf8_lossy(&buffer[..n]).to_string();
             let _ = app_handle.emit("terminal-stdout", text);
+        }
+        if let Ok(mut pair) = pty_pair_clone.try_lock() {
+            *pair = None;
+        }
+        if let Ok(mut w) = writer_clone.try_lock() {
+            *w = None;
         }
     });
 
@@ -719,6 +735,26 @@ async fn update_widget_property(file_path: String, node_id: String, property_key
 }
 
 #[tauri::command]
+async fn parse_flutter_theme_variables(source_code: String) -> Result<Vec<ast_parser::ColorVariableItem>, String> {
+    Ok(ast_parser::extract_color_variables_from_dart(&source_code))
+}
+
+#[tauri::command]
+async fn scan_flutter_theme_in_project(project_path: String) -> Result<ast_parser::ThemeScanResult, String> {
+    Ok(ast_parser::scan_flutter_theme_in_project(&project_path))
+}
+
+#[tauri::command]
+async fn generate_flutter_colors_code(variables: Vec<ast_parser::ColorVariableItem>) -> Result<String, String> {
+    Ok(ast_parser::generate_flutter_colors_code(&variables))
+}
+
+#[tauri::command]
+async fn update_theme_color_in_file(file_path: String, var_name: String, new_hex: String) -> Result<(), String> {
+    ast_parser::update_theme_color_in_file(&file_path, &var_name, &new_hex)
+}
+
+#[tauri::command]
 fn is_macos() -> bool {
     cfg!(target_os = "macos")
 }
@@ -761,6 +797,10 @@ pub fn run() {
             parse_dart_file,
             inject_widget,
             update_widget_property,
+            parse_flutter_theme_variables,
+            scan_flutter_theme_in_project,
+            generate_flutter_colors_code,
+            update_theme_color_in_file,
             is_macos
         ])
         .run(tauri::generate_context!())

@@ -173,7 +173,7 @@ export function WorkspaceSidebar({ activeView }: WorkspaceSidebarProps) {
   return (
     <div
       className={cn(
-        "flex h-full w-full shrink-0 flex-col border-r border-sidebar-border bg-sidebar overflow-hidden"
+        "flex h-full w-full shrink-0 flex-col bg-sidebar overflow-hidden"
       )}
     >
       <div className="no-scrollbar flex h-full w-full flex-col gap-0 overflow-auto">
@@ -220,7 +220,7 @@ function ExplorerView() {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-sidebar">
       {/* Header */}
-      <div className="flex h-9 items-center justify-between px-3 border-b border-border/40 shrink-0">
+      <div className="flex h-9 items-center justify-between px-3 shrink-0">
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
           Files
         </h2>

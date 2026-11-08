@@ -25,6 +25,11 @@ export interface RecentProject {
 
 export type WorkspaceMode = "designer" | "editor";
 
+export interface CursorPosition {
+  line: number;
+  column: number;
+}
+
 export interface WorkspaceState {
   projectName: string | null;
   projectPath: string | null;
@@ -36,4 +41,5 @@ export interface WorkspaceState {
   workspaceMode: WorkspaceMode;
   recentProjects?: RecentProject[];
   showWelcomeOnStartup?: boolean;
+  cursorPosition?: CursorPosition;
 }

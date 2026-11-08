@@ -35,7 +35,7 @@ export function WorkspaceSearch() {
   return (
     <div className="flex h-full flex-col bg-background">
       {/* Header */}
-      <div className="flex h-9 items-center justify-between px-3 border-b border-border/40">
+      <div className="flex h-9 items-center justify-between px-3">
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
           Code Search
         </h2>

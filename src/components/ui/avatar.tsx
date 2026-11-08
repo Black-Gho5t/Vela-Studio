@@ -1,33 +1,97 @@
 import * as React from "react"
 import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar"
+import { Blobatar, type BlobatarProps } from "@blobatar/react"
 import { cn } from "cn"
+
+interface AvatarContextValue {
+  name?: string
+  animate?: "hover" | "always"
+}
+
+const AvatarContext = React.createContext<AvatarContextValue>({})
 
 function Avatar({
   className,
   size = "default",
+  name,
+  animate,
+  children,
   ...props
 }: AvatarPrimitive.Root.Props & {
   size?: "default" | "sm" | "lg"
+  name?: string
+  animate?: "hover" | "always"
 }) {
   return (
-    <AvatarPrimitive.Root
-      data-slot="avatar"
-      data-size={size}
-      className={cn(
-        "group/avatar relative flex size-8 shrink-0 rounded-full select-none after:absolute after:inset-0 after:rounded-full after:border after:border-border after:mix-blend-darken data-[size=lg]:size-10 data-[size=sm]:size-6 dark:after:mix-blend-lighten",
-        className
-      )}
-      {...props}
-    />
+    <AvatarContext.Provider value={{ name, animate }}>
+      <AvatarPrimitive.Root
+        data-slot="avatar"
+        data-size={size}
+        className={cn(
+          "group/avatar relative flex size-8 shrink-0 overflow-hidden rounded-full select-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:border after:border-border after:mix-blend-darken data-[size=lg]:size-10 data-[size=sm]:size-6 dark:after:mix-blend-lighten",
+          className
+        )}
+        {...props}
+      >
+        {children ?? (name ? (
+          animate ? (
+            <Blobatar
+              name={name}
+              animate={animate}
+              className="aspect-square size-full rounded-[inherit] object-cover"
+            />
+          ) : (
+            <Blobatar
+              name={name}
+              className="aspect-square size-full rounded-[inherit] object-cover"
+            />
+          )
+        ) : null)}
+      </AvatarPrimitive.Root>
+    </AvatarContext.Provider>
   )
 }
 
-function AvatarImage({ className, ...props }: AvatarPrimitive.Image.Props) {
+function AvatarImage({
+  className,
+  name,
+  src,
+  animate,
+  ...props
+}: Omit<AvatarPrimitive.Image.Props, "src"> & {
+  src?: string
+  name?: string
+  animate?: "hover" | "always"
+}) {
+  const context = React.useContext(AvatarContext)
+  const avatarName = name ?? context.name
+  const effectiveAnimate = animate ?? context.animate
+
+  if (avatarName && !src) {
+    const avatarClass = cn(
+      "aspect-square size-full rounded-[inherit] object-cover",
+      className
+    )
+    return effectiveAnimate ? (
+      <Blobatar
+        name={avatarName}
+        animate={effectiveAnimate}
+        className={avatarClass}
+      />
+    ) : (
+      <Blobatar
+        name={avatarName}
+        className={avatarClass}
+      />
+    )
+  }
+
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
+      src={src}
       className={cn(
-        "aspect-square size-full rounded-full object-cover",
+        "aspect-square size-full rounded-[inherit] object-cover",
         className
       )}
       {...props}
@@ -103,4 +167,6 @@ export {
   AvatarGroup,
   AvatarGroupCount,
   AvatarBadge,
+  Blobatar,
 }
+export type { BlobatarProps }

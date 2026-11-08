@@ -1,10 +1,12 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { WorkspaceState, WorkspaceTab, FileNode, WorkspaceMode } from "./workspace.types";
+import { WorkspaceState, WorkspaceTab, FileNode, WorkspaceMode, CursorPosition } from "./workspace.types";
 
 interface WorkspaceActions {
   setProjectName: (name: string | null) => void;
   setProjectPath: (path: string | null) => void;
+  // Cursor Position
+  setCursorPosition: (pos: CursorPosition) => void;
   // Tabs
   addTab: (tab: WorkspaceTab) => void;
   closeTab: (tabId: string) => void;
@@ -29,6 +31,9 @@ interface WorkspaceActions {
   addRecentProject: (project: { name: string; path: string }) => void;
   setShowWelcomeOnStartup: (show: boolean) => void;
   openWelcomeTab: () => void;
+
+  // Settings
+  openSettingsTab: () => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
@@ -43,6 +48,7 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       devices: [],
       selectedDeviceId: null,
       workspaceMode: "editor",
+      cursorPosition: { line: 1, column: 1 },
       recentProjects: [
         {
           name: "Vela-Studio",
@@ -53,6 +59,25 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       showWelcomeOnStartup: true,
 
       // Actions
+      openSettingsTab: () =>
+        set((state) => {
+          const existing = state.tabs.find((t) => t.id === "settings");
+          if (existing) {
+            return { activeTabId: "settings", workspaceMode: "editor" };
+          }
+          const settingsTab: WorkspaceTab = {
+            id: "settings",
+            name: "Settings",
+            path: "settings",
+            isActive: true,
+            isModified: false,
+          };
+          return {
+            tabs: [...state.tabs, settingsTab],
+            activeTabId: "settings",
+            workspaceMode: "editor",
+          };
+        }),
       openWelcomeTab: () =>
         set((state) => {
           const existing = state.tabs.find((t) => t.id === "welcome");
@@ -140,6 +165,7 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
 
       setDevices: (devices) => set({ devices }),
       setSelectedDeviceId: (id) => set({ selectedDeviceId: id }),
+      setCursorPosition: (cursorPosition) => set({ cursorPosition }),
     }),
     {
       name: "workspace-project-storage",

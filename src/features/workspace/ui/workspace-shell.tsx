@@ -9,18 +9,74 @@ import { WorkspaceOverview } from "./workspace-overview";
 import { WorkspacePrimaryRail } from "./workspace-primary-rail";
 import { WorkspaceSidebar } from "./workspace-sidebar";
 import { WorkspaceTitlebar } from "./workspace-titlebar";
-import { WorkspaceSecondaryRail } from "./workspace-secondary-rail";
+import { WorkspaceSecondaryRail, type SecondaryRailView } from "./workspace-secondary-rail";
 import { WorkspaceTerminal } from "./workspace-terminal";
-import { Layers, PanelLeft, PanelsTopLeft, Play, Frame, SlidersHorizontal, Smartphone } from "lucide-react";
+import { WorkspaceStatusbar } from "./workspace-statusbar";
+import { WorkspaceNotifications } from "./workspace-notifications";
+import {
+  Layers,
+  PanelLeft,
+  PanelsTopLeft,
+  Frame,
+  SlidersHorizontal,
+  Smartphone,
+  X,
+  Trash2,
+  Plus,
+  Terminal as TerminalIcon,
+  CheckCircle2,
+  Bug,
+  FileText,
+} from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { DesignerSidebar } from "./designer-sidebar";
 import { DesignerCanvas, type CanvasDeviceFrame, type CanvasWidgetElement } from "./designer-canvas";
 import { type DesignerTool } from "./designer-dock";
 import { DesignerFramePresets, type FramePresetItem } from "./designer-frame-presets";
 import { DesignerFrameProperties } from "./designer-frame-properties";
-import { createFlutterFileForFrame } from "../model/designer-frame-file";
+import { createFlutterFileForFrame, debouncedSyncFrameToFile } from "../model/designer-frame-file";
+import { parseDartCodeToFrameElements } from "../model/code-to-canvas-sync";
 import { VelaSetupScreen } from "./vela-setup";
 import { useWorkspaceStore } from "../model/workspace.store";
+
+// Helper to verify if a Dart file represents a UI screen/widget (excludes themes, colors, models, services)
+function isFlutterScreenFile(fileName?: string, filePath?: string, content?: string): boolean {
+  if (!fileName || !fileName.endsWith(".dart")) return false;
+
+  const lower = (filePath || fileName).toLowerCase();
+  if (
+    lower.includes("/theme/") ||
+    lower.includes("/styles/") ||
+    lower.includes("/colors/") ||
+    lower.includes("/models/") ||
+    lower.includes("/providers/") ||
+    lower.includes("/bloc/") ||
+    lower.includes("/services/") ||
+    lower.includes("/utils/") ||
+    lower.includes("/generated/") ||
+    lower.includes(".g.dart") ||
+    lower.includes(".freezed.dart") ||
+    lower.endsWith("_colors.dart") ||
+    lower.endsWith("_theme.dart") ||
+    lower.endsWith("_styles.dart") ||
+    lower.endsWith("_constants.dart") ||
+    lower.endsWith("_model.dart") ||
+    lower.endsWith("_service.dart")
+  ) {
+    return false;
+  }
+
+  if (!content) return true;
+
+  return (
+    content.includes("StatelessWidget") ||
+    content.includes("StatefulWidget") ||
+    content.includes("HookWidget") ||
+    content.includes("ConsumerWidget") ||
+    content.includes("Widget build(")
+  );
+}
 
 export function WorkspaceShell() {
   const [engineReady, setEngineReady] = React.useState(false);
@@ -28,6 +84,17 @@ export function WorkspaceShell() {
   const projectPath = useWorkspaceStore((state) => state.projectPath);
 
   const [gitBranch, setGitBranch] = React.useState<string | undefined>(undefined);
+  const [activeBottomTab, setActiveBottomTab] = React.useState<"PROBLEMS" | "OUTPUT" | "DEBUG CONSOLE" | "TERMINAL">("TERMINAL");
+  const [activeSecondaryView, setActiveSecondaryView] = React.useState<SecondaryRailView>("notifications");
+
+  const handleSecondaryViewChange = (view: SecondaryRailView) => {
+    if (activeSecondaryView === view && rightPanel) {
+      setRightPanel(false);
+    } else {
+      setActiveSecondaryView(view);
+      setRightPanel(true);
+    }
+  };
 
   React.useEffect(() => {
     if (!projectPath) {
@@ -77,6 +144,14 @@ export function WorkspaceShell() {
   const [designerSidebarOpen, setDesignerSidebarOpen] = React.useState(true);
   const [designerRightSidebarOpen, setDesignerRightSidebarOpen] = React.useState(true);
   const [designerSidebarsMinimized, setDesignerSidebarsMinimized] = React.useState(false);
+  const [designerLeftWidth, setDesignerLeftWidth] = React.useState(() => {
+    const saved = localStorage.getItem("vela-resize-designer-left");
+    return saved ? parseInt(saved, 10) : 260;
+  });
+  const [designerRightWidth, setDesignerRightWidth] = React.useState(() => {
+    const saved = localStorage.getItem("vela-resize-designer-right");
+    return saved ? parseInt(saved, 10) : 280;
+  });
   const [designerActiveTool, setDesignerActiveTool] = React.useState<DesignerTool>("select");
   const [designerFrames, setDesignerFrames] = React.useState<CanvasDeviceFrame[]>([]);
   const [selectedFrameId, setSelectedFrameId] = React.useState<string>("");
@@ -87,10 +162,38 @@ export function WorkspaceShell() {
     setDesignerFrames((prev) =>
       prev.map((f) => (f.id === updatedFrame.id ? updatedFrame : f))
     );
+    debouncedSyncFrameToFile(updatedFrame);
+  };
+
+  const handleFramesChange = (nextFrames: CanvasDeviceFrame[]) => {
+    setDesignerFrames((prev) => {
+      for (const nf of nextFrames) {
+        const pf = prev.find((f) => f.id === nf.id);
+        if (
+          !pf ||
+          pf.elements !== nf.elements ||
+          pf.layoutFlow !== nf.layoutFlow ||
+          pf.screenLayout !== nf.screenLayout ||
+          pf.spacing !== nf.spacing ||
+          pf.fill !== nf.fill
+        ) {
+          debouncedSyncFrameToFile(nf);
+        }
+      }
+      return nextFrames;
+    });
   };
 
   const handleSelectFrameId = (id: string) => {
     setSelectedFrameId(id);
+    if (id) {
+      setDesignerRightSidebarOpen(true);
+      setDesignerSidebarsMinimized(false);
+    }
+  };
+
+  const handleSelectElementId = (id: string) => {
+    setSelectedElementId(id);
     if (id) {
       setDesignerRightSidebarOpen(true);
       setDesignerSidebarsMinimized(false);
@@ -110,11 +213,14 @@ export function WorkspaceShell() {
     };
 
     setDesignerFrames((prev) =>
-      prev.map((f) =>
-        f.id === targetFrameId
-          ? { ...f, elements: [...(f.elements || []), newElement] }
-          : f
-      )
+      prev.map((f) => {
+        if (f.id === targetFrameId) {
+          const updated = { ...f, elements: [...(f.elements || []), newElement] };
+          debouncedSyncFrameToFile(updated, 50);
+          return updated;
+        }
+        return f;
+      })
     );
     setSelectedFrameId(targetFrameId);
     setSelectedElementId(newElement.id);
@@ -122,15 +228,39 @@ export function WorkspaceShell() {
 
   const handleDeleteElementFromFrame = (frameId: string, elementId: string) => {
     setDesignerFrames((prev) =>
-      prev.map((f) =>
-        f.id === frameId
-          ? { ...f, elements: (f.elements || []).filter((el) => el.id !== elementId) }
-          : f
-      )
+      prev.map((f) => {
+        if (f.id === frameId) {
+          const updated = {
+            ...f,
+            elements: (f.elements || []).filter((el) => el.id !== elementId),
+          };
+          debouncedSyncFrameToFile(updated, 50);
+          return updated;
+        }
+        return f;
+      })
     );
     if (selectedElementId === elementId) {
       setSelectedElementId("");
     }
+  };
+
+  const handleUpdateElement = (frameId: string, updatedElement: CanvasWidgetElement) => {
+    setDesignerFrames((prev) =>
+      prev.map((f) => {
+        if (f.id === frameId) {
+          const updated = {
+            ...f,
+            elements: (f.elements || []).map((el) =>
+              el.id === updatedElement.id ? updatedElement : el
+            ),
+          };
+          debouncedSyncFrameToFile(updated, 50);
+          return updated;
+        }
+        return f;
+      })
+    );
   };
 
   const handleSelectTool = (tool: DesignerTool) => {
@@ -162,6 +292,7 @@ export function WorkspaceShell() {
       height: preset.height,
       fileName: fileInfo.fileName,
       filePath: fileInfo.filePath,
+      elements: [],
     };
 
     setDesignerFrames((prev) => [...prev, newFrame]);
@@ -171,6 +302,66 @@ export function WorkspaceShell() {
 
   const workspaceMode = useWorkspaceStore((state) => state.workspaceMode);
   const setWorkspaceMode = useWorkspaceStore((state) => state.setWorkspaceMode);
+  const tabs = useWorkspaceStore((state) => state.tabs);
+  const activeTabId = useWorkspaceStore((state) => state.activeTabId);
+
+  // Synchronize active Dart file to Designer frame when entering designer mode
+  React.useEffect(() => {
+    if (workspaceMode !== "designer") return;
+
+    // Purge any mistakenly created non-UI frames (e.g. from app_colors.dart or theme files)
+    setDesignerFrames((prev) =>
+      prev.filter((f) => !f.fileName || isFlutterScreenFile(f.fileName, f.filePath))
+    );
+
+    const activeTab = tabs.find((t) => t.id === activeTabId);
+    if (!activeTab || !activeTab.content || !isFlutterScreenFile(activeTab.name, activeTab.path, activeTab.content)) return;
+
+    const fileName = activeTab.name;
+    const existingFrame = designerFrames.find(
+      (f) => f.fileName === fileName || f.filePath === activeTab.path
+    );
+
+    if (existingFrame) {
+      parseDartCodeToFrameElements(activeTab.content).then(({ elements, layoutFlow, screenLayout }) => {
+        if (elements.length > 0) {
+          setDesignerFrames((prev) =>
+            prev.map((f) =>
+              f.id === existingFrame.id
+                ? { ...f, elements, layoutFlow, screenLayout }
+                : f
+            )
+          );
+        }
+      });
+    } else if (designerFrames.length === 0) {
+      parseDartCodeToFrameElements(activeTab.content).then(({ elements, layoutFlow, screenLayout }) => {
+        // Only create a frame if elements were parsed or it defines a Scaffold/Widget structure
+        const isUiScreen =
+          elements.length > 0 ||
+          (activeTab.content && (activeTab.content.includes("Scaffold") || activeTab.content.includes("AppBar")));
+
+        if (!isUiScreen) return;
+
+        const newFrame: CanvasDeviceFrame = {
+          id: `frame-${Date.now()}`,
+          type: "iphone",
+          name: fileName.replace(/\.dart$/, "").replace(/_/g, " "),
+          x: -196,
+          y: -422,
+          width: 393,
+          height: 852,
+          fileName,
+          filePath: activeTab.path,
+          elements,
+          layoutFlow,
+          screenLayout,
+        };
+        setDesignerFrames([newFrame]);
+        setSelectedFrameId(newFrame.id);
+      });
+    }
+  }, [workspaceMode, activeTabId]);
 
   const handleViewChange = (view: "explorer" | "search" | "git") => {
     if (activeView === view && leftPanel) {
@@ -244,7 +435,6 @@ export function WorkspaceShell() {
           <WorkspacePrimaryRail 
             activeView={activeView}
             onViewChange={handleViewChange}
-            showRightBorder={!leftPanel}
           />
 
           {/* File tree */}
@@ -265,22 +455,71 @@ export function WorkspaceShell() {
                 </div>
                 
                 {rightPanel && (
-                  <ResizableSidebar id="right-panel" side="right" defaultWidth={280}>
-                    <div className="flex flex-col h-full border-l border-border bg-background">
-                      <div className="flex h-9 items-center border-b border-border px-3 shrink-0">
-                        <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-muted-foreground">
-                          Panel
-                        </span>
-                      </div>
-                      <div className="flex flex-1 items-center justify-center">
-                        <span className="text-xs text-muted-foreground/50">Right panel</span>
-                      </div>
+                  <ResizableSidebar id="right-panel" side="right" defaultWidth={300}>
+                    <div className="flex flex-col h-full bg-background overflow-hidden">
+                      {activeSecondaryView === "notifications" ? (
+                        <WorkspaceNotifications onClose={() => setRightPanel(false)} />
+                      ) : activeSecondaryView === "device-manager" ? (
+                        <div className="flex flex-col h-full select-none">
+                          <div className="flex h-9 items-center justify-between px-3 shrink-0">
+                            <span className="text-[11px] font-semibold text-foreground">
+                              Device Manager
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setRightPanel(false)}
+                              className="size-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                              aria-label="Cerrar panel"
+                            >
+                              <X className="size-3.5" />
+                            </button>
+                          </div>
+                          <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-muted-foreground">
+                            Gestor de dispositivos físicos y emuladores.
+                          </div>
+                        </div>
+                      ) : activeSecondaryView === "running-devices" ? (
+                        <div className="flex flex-col h-full select-none">
+                          <div className="flex h-9 items-center justify-between px-3 shrink-0">
+                            <span className="text-[11px] font-semibold text-foreground">
+                              Running Devices
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setRightPanel(false)}
+                              className="size-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                              aria-label="Cerrar panel"
+                            >
+                              <X className="size-3.5" />
+                            </button>
+                          </div>
+                          <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-muted-foreground">
+                            No hay dispositivos en ejecución actualmente.
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col h-full select-none">
+                          <div className="flex h-9 items-center justify-between px-3 shrink-0">
+                            <span className="text-[11px] font-semibold text-foreground">
+                              Gradle & Dependencies
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setRightPanel(false)}
+                              className="size-6 flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                              aria-label="Cerrar panel"
+                            >
+                              <X className="size-3.5" />
+                            </button>
+                          </div>
+                          <div className="flex flex-1 items-center justify-center p-4 text-center text-xs text-muted-foreground">
+                            Tareas de Gradle y dependencias del proyecto.
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </ResizableSidebar>
                 )}
-                
-                {/* Right secondary rail (inside editor row) */}
-                <WorkspaceSecondaryRail />
               </div>
             </ResizablePanel>
 
@@ -288,67 +527,205 @@ export function WorkspaceShell() {
             {bottomPanel && (
               <>
                 <ResizableHandle withHandle />
-                <ResizablePanel id="bottom-panel" defaultSize="28" minSize="10" className="flex flex-col h-full min-h-0 overflow-hidden bg-background border-t border-border">
-                  <div className="flex h-9 items-center px-1 shrink-0 border-b border-border gap-1 overflow-x-auto no-scrollbar">
-                    {["PROBLEMS", "OUTPUT", "DEBUG CONSOLE", "TERMINAL"].map((tab) => (
-                      <button
-                        key={tab}
-                        className={cn(
-                          "px-3 py-1 text-[10px] font-medium uppercase tracking-[0.1em] transition-colors whitespace-nowrap outline-none",
-                          tab === "TERMINAL"
-                            ? "text-foreground border-b border-foreground"
-                            : "text-muted-foreground hover:text-foreground"
+                <ResizablePanel id="bottom-panel" defaultSize="28" minSize="10" className="flex flex-col h-full min-h-0 overflow-hidden bg-background px-2 pb-2">
+                  <div className="flex flex-col h-full w-full rounded-xl border border-border/80 bg-card text-card-foreground overflow-hidden shadow-xs isolate">
+                    {/* Clean Panel Header */}
+                    <div className="flex h-8 items-center justify-between px-3 shrink-0 select-none bg-transparent pt-1">
+                      {/* Left: Tab options */}
+                      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                        {[
+                          { id: "TERMINAL" as const, label: "Terminal", icon: TerminalIcon },
+                          { id: "PROBLEMS" as const, label: "Problems", count: 0 },
+                          { id: "OUTPUT" as const, label: "Output", icon: FileText },
+                          { id: "DEBUG CONSOLE" as const, label: "Debug Console", icon: Bug },
+                        ].map((tab) => {
+                          const isActive = tab.id === activeBottomTab;
+                          return (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => setActiveBottomTab(tab.id)}
+                              className={cn(
+                                "flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                                isActive
+                                  ? "bg-muted/50 text-foreground shadow-2xs"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                              )}
+                            >
+                              {tab.icon && (
+                                <tab.icon className={cn("size-3", isActive ? "text-primary" : "opacity-60")} />
+                              )}
+                              <span>{tab.label}</span>
+                              {typeof tab.count === "number" && (
+                                <span
+                                  className={cn(
+                                    "px-1.5 py-0.2 rounded-full text-[10px] font-mono leading-tight",
+                                    isActive
+                                      ? "bg-background/80 text-foreground"
+                                      : "bg-muted/60 text-muted-foreground"
+                                  )}
+                                >
+                                  {tab.count}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Right: Actions */}
+                      <div className="flex items-center gap-0.5 shrink-0 text-muted-foreground">
+                        {activeBottomTab === "TERMINAL" && (
+                          <>
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      invoke("write_terminal", { data: "\x0c" }).catch(console.error);
+                                    }}
+                                    className="flex size-6 items-center justify-center rounded-md hover:bg-muted/60 hover:text-foreground transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    aria-label="Limpiar terminal"
+                                  />
+                                }
+                              >
+                                <Trash2 className="size-3.5" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" sideOffset={6}>Limpiar terminal</TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      invoke("write_terminal", { data: "\n" }).catch(console.error);
+                                    }}
+                                    className="flex size-6 items-center justify-center rounded-md hover:bg-muted/60 hover:text-foreground transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                    aria-label="Nueva sesión"
+                                  />
+                                }
+                              >
+                                <Plus className="size-3.5" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" sideOffset={6}>Nueva sesión</TooltipContent>
+                            </Tooltip>
+                          </>
                         )}
-                      >
-                        {tab}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex-1 min-h-0 h-full w-full">
-                    {/* Hardcoded to WorkspaceTerminal for now as requested */}
-                    <WorkspaceTerminal projectPath={projectPath || undefined} />
+
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <button
+                                type="button"
+                                onClick={() => setBottomPanel(false)}
+                                className="flex size-6 items-center justify-center rounded-md hover:bg-muted/60 hover:text-foreground transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                aria-label="Cerrar panel"
+                              />
+                            }
+                          >
+                            <X className="size-3.5" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" sideOffset={6}>Cerrar panel</TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+
+                    {/* Panel Body */}
+                    <div className="flex-1 min-h-0 h-full w-full">
+                      {activeBottomTab === "PROBLEMS" && (
+                        <div className="flex flex-col items-center justify-center h-full text-center p-6 gap-2 select-none">
+                          <CheckCircle2 className="size-6 text-muted-foreground/40" />
+                          <span className="text-xs font-medium text-foreground">Sin problemas</span>
+                          <span className="text-[11px] text-muted-foreground/60 max-w-xs">
+                            No se han detectado errores ni advertencias en el espacio de trabajo.
+                          </span>
+                        </div>
+                      )}
+                      {activeBottomTab === "OUTPUT" && (
+                        <div className="flex flex-col items-center justify-center h-full text-center p-6 gap-2 select-none">
+                          <FileText className="size-6 text-muted-foreground/40" />
+                          <span className="text-xs font-medium text-foreground">Salida vacía</span>
+                          <span className="text-[11px] text-muted-foreground/60 max-w-xs">
+                            No hay registros ni salida de compilación reciente.
+                          </span>
+                        </div>
+                      )}
+                      {activeBottomTab === "DEBUG CONSOLE" && (
+                        <div className="flex flex-col items-center justify-center h-full text-center p-6 gap-2 select-none">
+                          <Bug className="size-6 text-muted-foreground/40" />
+                          <span className="text-xs font-medium text-foreground">Consola de depuración</span>
+                          <span className="text-[11px] text-muted-foreground/60 max-w-xs">
+                            Inicia una sesión de depuración para evaluar expresiones e inspeccionar registros.
+                          </span>
+                        </div>
+                      )}
+                      <div className={cn("h-full w-full", activeBottomTab !== "TERMINAL" && "hidden")}>
+                        <WorkspaceTerminal projectPath={projectPath || undefined} />
+                      </div>
+                    </div>
                   </div>
                 </ResizablePanel>
               </>
             )}
           </ResizablePanelGroup>
         </div>
+
+        {/* Right secondary rail — always visible full height on right */}
+        <WorkspaceSecondaryRail
+          activeView={activeSecondaryView}
+          onViewChange={handleSecondaryViewChange}
+          isOpen={rightPanel}
+        />
       </div>
 
-      {/* Designer Workspace: layout with Slide-over Sidebars and Full-Width Canvas */}
+      {/* Designer Workspace: layout with Sidebars and Rounded Infinite Canvas */}
       {workspaceMode === "designer" && (
         <div className="relative flex flex-1 min-h-0 w-full overflow-hidden bg-background">
-          {/* Full-width Infinite Canvas (Never resizes, zero layout shifting) */}
-          <DesignerCanvas
-            isLeftSidebarOpen={!designerSidebarsMinimized && designerSidebarOpen}
-            isRightSidebarOpen={!designerSidebarsMinimized && designerRightSidebarOpen}
-            activeTool={designerActiveTool}
-            onSelectTool={handleSelectTool}
-            frames={designerFrames}
-            onFramesChange={setDesignerFrames}
-            selectedFrameId={selectedFrameId}
-            onSelectFrameId={handleSelectFrameId}
-            selectedElementId={selectedElementId}
-            onSelectElementId={setSelectedElementId}
-          />
-
-          {/* Left Designer Sidebar (Slide-over with Primary Rail) */}
+          {/* Left Designer Sidebar (with Primary Rail and drawer panel) */}
           <DesignerSidebar
             open={!designerSidebarsMinimized && designerSidebarOpen}
             onToggleMinimize={() => setDesignerSidebarsMinimized(true)}
+            width={designerLeftWidth}
+            onWidthChange={setDesignerLeftWidth}
             frames={designerFrames}
             selectedFrameId={selectedFrameId}
             onSelectFrameId={handleSelectFrameId}
             selectedElementId={selectedElementId}
-            onSelectElementId={setSelectedElementId}
+            onSelectElementId={handleSelectElementId}
             onAddElementToFrame={handleAddElementToFrame}
             onDeleteElement={handleDeleteElementFromFrame}
+            onUpdateElement={handleUpdateElement}
           />
 
-          {/* Right Designer Sidebar (Slide-over with Frame Properties / Presets) */}
+          {/* Center: Infinite Canvas Card with Rounded Corners (matching editor mode) */}
+          <div className="flex flex-col flex-1 min-w-0 min-h-0 h-full overflow-hidden px-2 pb-2 pt-0.5">
+            <div className="relative flex flex-col flex-1 min-h-0 min-w-0 h-full overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs isolate">
+              <DesignerCanvas
+                isLeftSidebarOpen={false}
+                isRightSidebarOpen={false}
+                leftSidebarWidth={0}
+                rightSidebarWidth={0}
+                activeTool={designerActiveTool}
+                onSelectTool={handleSelectTool}
+                frames={designerFrames}
+                onFramesChange={handleFramesChange}
+                selectedFrameId={selectedFrameId}
+                onSelectFrameId={handleSelectFrameId}
+                selectedElementId={selectedElementId}
+                onSelectElementId={handleSelectElementId}
+              />
+            </div>
+          </div>
+
+          {/* Right Designer Sidebar (Frame Properties / Presets) */}
           <DesignerSidebar
             side="right"
             open={!designerSidebarsMinimized && designerRightSidebarOpen}
+            width={designerRightWidth}
+            onWidthChange={setDesignerRightWidth}
             title={
               designerActiveTool === "frame"
                 ? "Marco"
@@ -393,7 +770,7 @@ export function WorkspaceShell() {
             )}
           >
             {/* Left Pill */}
-            <div className="pointer-events-auto flex items-center gap-2 h-9 px-3 rounded-2xl border border-border/50 dark:border-white/10 bg-background/70 dark:bg-zinc-900/75 backdrop-blur-xl shadow-xl text-foreground select-none">
+            <div className="pointer-events-auto flex items-center gap-2 h-9 px-3 rounded-2xl border border-border/80 bg-background/85 backdrop-blur-xl shadow-xl text-foreground select-none">
               <Layers className="size-4 text-primary shrink-0" />
               <span className="text-xs font-medium max-w-[180px] truncate">
                 {projectName || "Vela Studio"}
@@ -413,19 +790,10 @@ export function WorkspaceShell() {
             </div>
 
             {/* Right Pill */}
-            <div className="pointer-events-auto flex items-center gap-2 h-9 px-2.5 rounded-2xl border border-border/50 dark:border-white/10 bg-background/70 dark:bg-zinc-900/75 backdrop-blur-xl shadow-xl text-foreground select-none">
+            <div className="pointer-events-auto flex items-center gap-2 h-9 px-2.5 rounded-2xl border border-border/80 bg-background/85 backdrop-blur-xl shadow-xl text-foreground select-none">
               <div className="size-5 rounded-full bg-amber-500/20 text-amber-500 font-semibold text-[10px] flex items-center justify-center border border-amber-500/30">
                 B
               </div>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className="size-6 text-muted-foreground hover:text-foreground"
-                title="Ejecutar"
-              >
-                <Play className="size-3 fill-current" />
-              </Button>
-              <div className="h-3.5 w-px bg-border/40 dark:bg-white/10" />
               <Button
                 variant="outline"
                 size="xs"
@@ -434,7 +802,7 @@ export function WorkspaceShell() {
                   setDesignerSidebarOpen(true);
                   setDesignerRightSidebarOpen(true);
                 }}
-                className="h-6 gap-1 px-2 text-[11px] font-medium border-border/50 dark:border-white/10 hover:bg-muted/80 shadow-xs rounded-lg"
+                className="h-6 gap-1 px-2 text-[11px] font-medium border-border/60 hover:bg-muted/80 shadow-xs rounded-lg"
                 title="Volver a maximizar las 2 sidebars"
               >
                 <PanelsTopLeft className="size-3.5" />
@@ -444,6 +812,16 @@ export function WorkspaceShell() {
           </div>
         </div>
       )}
+
+      {/* Status Bar at the bottom of the window */}
+      <WorkspaceStatusbar
+        gitBranch={gitBranch}
+        onToggleBottom={() => setBottomPanel((v) => !v)}
+        onSelectBottomTab={(tab) => {
+          setBottomPanel(true);
+          setActiveBottomTab(tab);
+        }}
+      />
       </div>
     </SidebarProvider>
   );

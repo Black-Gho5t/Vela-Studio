@@ -22,6 +22,8 @@ import {
   MousePointerClick,
   Eye,
   EyeOff,
+  Lock,
+  Unlock,
   ChevronDown,
   ChevronRight,
   Sparkles,
@@ -72,6 +74,11 @@ interface DesignerSidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   onSelectElementId?: (id: string) => void;
   onAddElementToFrame?: (frameId: string, element: Omit<CanvasWidgetElement, "id">) => void;
   onDeleteElement?: (frameId: string, elementId: string) => void;
+  onUpdateElement?: (frameId: string, element: CanvasWidgetElement) => void;
+  width?: number;
+  onWidthChange?: (width: number) => void;
+  minWidth?: number;
+  maxWidth?: number;
 }
 
 function LayerTreeRow({
@@ -188,11 +195,65 @@ export function DesignerSidebar({
   onSelectElementId,
   onAddElementToFrame,
   onDeleteElement,
+  onUpdateElement,
+  width,
+  onWidthChange,
+  minWidth,
+  maxWidth,
   className,
   children,
   ...props
 }: DesignerSidebarProps) {
   const isRight = side === "right";
+  const defaultWidth = isRight ? 280 : 260;
+  const actualMinWidth = minWidth ?? (isRight ? 240 : 200);
+  const actualMaxWidth = maxWidth ?? 650;
+
+  const [internalWidth, setInternalWidth] = React.useState(() => {
+    const saved = localStorage.getItem(`vela-resize-designer-${side}`);
+    return saved ? parseInt(saved, 10) : defaultWidth;
+  });
+
+  const currentWidth = width ?? internalWidth;
+  const isDragging = React.useRef(false);
+
+  const handleMouseDown = React.useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      isDragging.current = true;
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+
+      const startX = e.clientX;
+      const startWidth = currentWidth;
+
+      const handleMouseMove = (e: MouseEvent) => {
+        if (!isDragging.current) return;
+        const delta = isRight ? startX - e.clientX : e.clientX - startX;
+        const newWidth = Math.min(Math.max(startWidth + delta, actualMinWidth), actualMaxWidth);
+        setInternalWidth(newWidth);
+        onWidthChange?.(newWidth);
+      };
+
+      const handleMouseUp = (e: MouseEvent) => {
+        if (!isDragging.current) return;
+        isDragging.current = false;
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+
+        const delta = isRight ? startX - e.clientX : e.clientX - startX;
+        const finalWidth = Math.min(Math.max(startWidth + delta, actualMinWidth), actualMaxWidth);
+        localStorage.setItem(`vela-resize-designer-${side}`, finalWidth.toString());
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [currentWidth, isRight, actualMinWidth, actualMaxWidth, onWidthChange, side]
+  );
+
   const [internalRailTab, setInternalRailTab] = React.useState<DesignerLeftRailTab>("layers");
   const [colorVariables, setColorVariables] = React.useState<ColorVariableItem[]>([]);
   const [themeSource, setThemeSource] = React.useState<string | null>(null);
@@ -414,14 +475,24 @@ class CustomButton extends StatelessWidget {
       <aside
         data-slot="designer-sidebar"
         data-side="right"
+        style={{ width: currentWidth }}
         className={cn(
-          "absolute top-0 bottom-0 z-20 w-64 flex flex-col bg-sidebar text-sidebar-foreground transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] select-none right-0 border-l border-sidebar-border",
-          open ? "translate-x-0 shadow-lg" : "translate-x-full pointer-events-none",
+          "relative h-full shrink-0 flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-200 select-none z-20",
+          !open && "hidden",
           className
         )}
         {...props}
       >
-        <div className="h-9 border-b border-sidebar-border/60 px-3 flex flex-row items-center justify-between shrink-0">
+        {/* Resize Handle (Left edge) */}
+        <div
+          onMouseDown={handleMouseDown}
+          className="absolute top-0 bottom-0 -left-1 w-2 cursor-col-resize z-50 flex items-center justify-center group"
+          title="Arrastrar para redimensionar"
+        >
+          <div className="h-full w-0.5 bg-transparent group-hover:bg-primary/50 group-active:bg-primary transition-colors" />
+        </div>
+
+        <div className="h-9 px-3 flex flex-row items-center justify-between shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             {icon || <SlidersHorizontal className="size-3.5 text-primary shrink-0" />}
             <span className="text-xs font-semibold text-foreground truncate tracking-tight">
@@ -463,15 +534,24 @@ class CustomButton extends StatelessWidget {
     <aside
       data-slot="designer-sidebar"
       data-side="left"
+      style={{ width: currentWidth }}
       className={cn(
-        "absolute top-0 bottom-0 z-20 w-64 flex flex-row bg-sidebar text-sidebar-foreground transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] select-none left-0 border-r border-sidebar-border",
-        open ? "translate-x-0 shadow-lg" : "-translate-x-full pointer-events-none",
+        "relative h-full shrink-0 flex flex-row bg-sidebar text-sidebar-foreground transition-all duration-200 select-none z-20",
+        !open && "hidden",
         className
       )}
       {...props}
     >
+      {/* Resize Handle (Right edge) */}
+      <div
+        onMouseDown={handleMouseDown}
+        className="absolute top-0 bottom-0 -right-1 w-2 cursor-col-resize z-50 flex items-center justify-center group"
+        title="Arrastrar para redimensionar"
+      >
+        <div className="h-full w-0.5 bg-transparent group-hover:bg-primary/50 group-active:bg-primary transition-colors" />
+      </div>
       {/* ── Left Primary Rail ── */}
-      <div className="flex h-full w-12 shrink-0 flex-col items-center justify-between border-r border-sidebar-border/60 bg-sidebar py-3 px-1.5 select-none">
+      <div className="flex h-full w-12 shrink-0 flex-col items-center justify-between bg-sidebar py-3 px-1.5 select-none">
         <div className="flex flex-col items-center gap-1.5 w-full">
           {leftRailItems.map(({ id, label, description, icon: Icon }) => {
             const isActive = id === "layers" ? isLayersActive : activeRailTab === id;
@@ -525,7 +605,7 @@ class CustomButton extends StatelessWidget {
       {/* ── Right Content Pane ── */}
       <div className="flex flex-1 min-w-0 flex-col h-full bg-sidebar overflow-hidden">
         {/* Pane Header */}
-        <div className="h-9 border-b border-sidebar-border/60 px-3 flex flex-row items-center justify-between shrink-0">
+        <div className="h-9 px-3 flex flex-row items-center justify-between shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             {isLayersActive ? (
               <>
@@ -871,6 +951,40 @@ class CustomButton extends StatelessWidget {
                                           <span className="truncate">{el.label || el.name}</span>
                                         </div>
                                         <div className="flex items-center gap-1">
+                                          <button
+                                            type="button"
+                                            title={el.isVisible === false ? "Mostrar elemento" : "Ocultar elemento"}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onUpdateElement?.(frame.id, {
+                                                ...el,
+                                                isVisible: el.isVisible === false ? true : false,
+                                              });
+                                            }}
+                                            className={cn(
+                                              "size-4 items-center justify-center rounded hover:bg-sidebar-accent text-muted-foreground transition-colors",
+                                              el.isVisible === false ? "flex text-destructive" : "hidden group-hover/el:flex"
+                                            )}
+                                          >
+                                            {el.isVisible === false ? <EyeOff className="size-2.5" /> : <Eye className="size-2.5" />}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            title={el.isLocked ? "Desbloquear elemento" : "Bloquear elemento"}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onUpdateElement?.(frame.id, {
+                                                ...el,
+                                                isLocked: !el.isLocked,
+                                              });
+                                            }}
+                                            className={cn(
+                                              "size-4 items-center justify-center rounded hover:bg-sidebar-accent text-muted-foreground transition-colors",
+                                              el.isLocked ? "flex text-amber-500" : "hidden group-hover/el:flex"
+                                            )}
+                                          >
+                                            {el.isLocked ? <Lock className="size-2.5" /> : <Unlock className="size-2.5" />}
+                                          </button>
                                           <span className="text-[9px] font-mono text-muted-foreground/50">
                                             {el.x},{el.y}
                                           </span>

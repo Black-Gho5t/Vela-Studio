@@ -31,6 +31,8 @@ interface DesignerRulersProps {
   className?: string;
   isLeftSidebarOpen?: boolean;
   isRightSidebarOpen?: boolean;
+  leftSidebarWidth?: number;
+  rightSidebarWidth?: number;
   activeFrame?: { x: number; y: number; width: number; height: number };
 }
 
@@ -42,6 +44,8 @@ export function DesignerRulers({
   className,
   isLeftSidebarOpen = false,
   isRightSidebarOpen = false,
+  leftSidebarWidth = 260,
+  rightSidebarWidth = 280,
   activeFrame,
 }: DesignerRulersProps) {
   const hCanvasRef = React.useRef<HTMLCanvasElement>(null);
@@ -123,11 +127,11 @@ export function DesignerRulers({
 
     // Check if cursor is inside the visible canvas area (not over sidebars)
     const vRulerLeft = vRect.left - viewportRect.left;
-    const rightSidebarWidth = isRightSidebarOpen ? 256 : 0;
+    const rightSidebarOffset = isRightSidebarOpen ? rightSidebarWidth : 0;
     const isCursorInCanvas =
       cursorPosRef.current !== null &&
       cursorPosRef.current.x >= vRulerLeft &&
-      cursorPosRef.current.x <= viewportRect.width - rightSidebarWidth;
+      cursorPosRef.current.x <= viewportRect.width - rightSidebarOffset;
 
     // ── 1. DRAW HORIZONTAL RULER ──────────────────────────────────────────
     hCtx.fillStyle = bgColor;
@@ -316,31 +320,27 @@ export function DesignerRulers({
         type="button"
         onClick={onToggleVisible}
         title="Ocultar reglas (Shift + R)"
-        className={cn(
-          "pointer-events-auto absolute top-0 z-30 flex size-5 cursor-pointer items-center justify-center border-b border-r border-border/50 bg-background/90 font-mono text-[8px] text-muted-foreground/60 backdrop-blur-xs transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-muted hover:text-foreground",
-          isLeftSidebarOpen ? "left-64" : "left-0"
-        )}
+        style={{ left: isLeftSidebarOpen ? leftSidebarWidth : 0 }}
+        className="pointer-events-auto absolute top-0 z-30 flex size-5 cursor-pointer items-center justify-center border-b border-r border-border/50 bg-background/90 font-mono text-[8px] text-muted-foreground/60 backdrop-blur-xs transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-muted hover:text-foreground"
       >
         px
       </button>
 
       {/* Top (Horizontal) Ruler */}
       <div
-        className={cn(
-          "absolute top-0 h-5 border-b border-border/50 bg-background/80 backdrop-blur-xs transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-          isLeftSidebarOpen ? "left-[276px]" : "left-5",
-          isRightSidebarOpen ? "right-64" : "right-0"
-        )}
+        style={{
+          left: isLeftSidebarOpen ? leftSidebarWidth + 20 : 20,
+          right: isRightSidebarOpen ? rightSidebarWidth : 0,
+        }}
+        className="absolute top-0 h-5 border-b border-border/50 bg-background/80 backdrop-blur-xs transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
       >
         <canvas ref={hCanvasRef} className="h-full w-full block" />
       </div>
 
       {/* Left (Vertical) Ruler */}
       <div
-        className={cn(
-          "absolute inset-y-0 top-5 w-5 border-r border-border/50 bg-background/80 backdrop-blur-xs transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-          isLeftSidebarOpen ? "left-64" : "left-0"
-        )}
+        style={{ left: isLeftSidebarOpen ? leftSidebarWidth : 0 }}
+        className="absolute inset-y-0 top-5 w-5 border-r border-border/50 bg-background/80 backdrop-blur-xs transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
       >
         <canvas ref={vCanvasRef} className="h-full w-full block" />
       </div>

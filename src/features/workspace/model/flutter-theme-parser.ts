@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { useWorkspaceStore } from "./workspace.store";
 
 export interface ColorVariableItem {
@@ -113,9 +114,23 @@ function extractCallArguments(source: string, startIndex: number): string | null
 }
 
 /**
- * Parses Flutter source code (Dart) to extract color variables and theme tokens.
+ * Parses Flutter source code (Dart) using Rust Tree-sitter AST engine with local fallback.
  */
-export function parseColorsFromDartSource(source: string): ColorVariableItem[] {
+export async function parseColorsFromDartSource(source: string): Promise<ColorVariableItem[]> {
+  if (!source || !source.trim()) return [];
+  try {
+    const vars = await invoke<ColorVariableItem[]>("parse_flutter_theme_variables", { sourceCode: source });
+    if (vars && vars.length > 0) return vars;
+  } catch (err) {
+    console.warn("Rust AST theme parser error, using fallback:", err);
+  }
+  return fallbackParseColorsFromDartSource(source);
+}
+
+/**
+ * Fallback regex-based parser when Rust AST engine is unavailable.
+ */
+function fallbackParseColorsFromDartSource(source: string): ColorVariableItem[] {
   if (!source) return [];
   const items: ColorVariableItem[] = [];
   const seenIds = new Set<string>();
@@ -134,8 +149,6 @@ export function parseColorsFromDartSource(source: string): ColorVariableItem[] {
   };
 
   // 1. Match const/static Color declarations:
-  // e.g. static const Color primary = Color(0xFF0284C7);
-  // e.g. const primaryColor = Colors.deepPurple;
   const constRegex =
     /(?:static\s+)?(?:const|final)\s+(?:Color\s+)?([a-zA-Z0-9_]+)\s*=\s*([^;]+);/g;
   let match: RegExpExecArray | null;
@@ -149,7 +162,6 @@ export function parseColorsFromDartSource(source: string): ColorVariableItem[] {
   }
 
   // 2. Match ColorScheme constructors (with balanced parentheses):
-  // e.g. ColorScheme.fromSeed(seedColor: Colors.deepPurple, primary: Color(...))
   const schemeKeywordRegex = /ColorScheme(?:\.fromSeed|\.light|\.dark)?/g;
   while ((match = schemeKeywordRegex.exec(source)) !== null) {
     const argsBlock = extractCallArguments(source, match.index);
@@ -175,7 +187,6 @@ export function parseColorsFromDartSource(source: string): ColorVariableItem[] {
       }
     }
 
-    // If only seedColor was found, synthesize standard M3 companions
     if (seedColorVal && items.length <= 2) {
       addColorItem("secondary", "#625b71", "Material 3 secondary");
       addColorItem("surface", "#fef7ff", "Material 3 surface");
@@ -185,7 +196,6 @@ export function parseColorsFromDartSource(source: string): ColorVariableItem[] {
   }
 
   // 3. Match ThemeData properties:
-  // e.g. primaryColor: Color(...), scaffoldBackgroundColor: Color(...)
   const themeDataKeywordRegex = /ThemeData/g;
   while ((match = themeDataKeywordRegex.exec(source)) !== null) {
     const argsBlock = extractCallArguments(source, match.index);
@@ -211,6 +221,7 @@ export function parseColorsFromDartSource(source: string): ColorVariableItem[] {
 
 /**
  * Searches the Flutter workspace (active tabs or files on disk) to load theme variables.
+ * Uses the native Rust AST engine for fast disk scanning with Tree-sitter.
  */
 export async function loadFlutterThemeVariables(): Promise<FlutterThemeResult> {
   const store = useWorkspaceStore.getState();
@@ -231,7 +242,7 @@ export async function loadFlutterThemeVariables(): Promise<FlutterThemeResult> {
       (t) => t.name.toLowerCase() === name || t.path.toLowerCase().endsWith(name)
     );
     if (tab && tab.content && tab.content.trim().length > 0) {
-      const vars = parseColorsFromDartSource(tab.content);
+      const vars = await parseColorsFromDartSource(tab.content);
       if (vars.length > 0) {
         return {
           variables: vars,
@@ -241,40 +252,22 @@ export async function loadFlutterThemeVariables(): Promise<FlutterThemeResult> {
     }
   }
 
-  // 2. Check candidate files on disk via Tauri IPC
+  // 2. High-speed disk scan via Rust Tree-sitter AST engine
   if (projectPath) {
-    const candidatePaths = [
-      "lib/theme/app_colors.dart",
-      "lib/theme/colors.dart",
-      "lib/theme/app_theme.dart",
-      "lib/theme/theme.dart",
-      "lib/constants/colors.dart",
-      "lib/colors.dart",
-      "lib/theme.dart",
-      "lib/main.dart",
-    ];
-
     try {
-      const { workspaceApi } = await import("../api/workspace.api");
-      for (const relPath of candidatePaths) {
-        const fullPath = `${projectPath.replace(/\/+$/, "")}/${relPath}`;
-        try {
-          const content = await workspaceApi.readFile(fullPath);
-          if (content && content.trim().length > 0) {
-            const vars = parseColorsFromDartSource(content);
-            if (vars.length > 0) {
-              return {
-                variables: vars,
-                sourceFile: relPath,
-              };
-            }
-          }
-        } catch {
-          // File does not exist, check next candidate
-        }
+      const scanResult = await invoke<{
+        variables: ColorVariableItem[];
+        source_file: string | null;
+      }>("scan_flutter_theme_in_project", { projectPath });
+
+      if (scanResult && scanResult.variables && scanResult.variables.length > 0) {
+        return {
+          variables: scanResult.variables,
+          sourceFile: scanResult.source_file,
+        };
       }
     } catch (err) {
-      console.warn("Could not read Flutter theme from disk:", err);
+      console.warn("Rust project theme scan error:", err);
     }
   }
 
@@ -286,9 +279,9 @@ export async function loadFlutterThemeVariables(): Promise<FlutterThemeResult> {
 }
 
 /**
- * Generates an idiomatic Flutter Dart file containing an AppColors class.
+ * Fallback code generator if Rust backend is unavailable.
  */
-export function generateFlutterColorsDartFile(variables: ColorVariableItem[]): string {
+function fallbackGenerateFlutterColorsDartFile(variables: ColorVariableItem[]): string {
   const fields = variables
     .map((v) => {
       const cleanHex = v.value.replace(/^#/, "").toUpperCase();
@@ -296,7 +289,6 @@ export function generateFlutterColorsDartFile(variables: ColorVariableItem[]): s
       if (cleanHex.length === 6) {
         colorArg = `0xFF${cleanHex}`;
       } else if (cleanHex.length === 8) {
-        // #RRGGBBAA -> 0xAARRGGBB
         const rgb = cleanHex.slice(0, 6);
         const a = cleanHex.slice(6);
         colorArg = `0x${a}${rgb}`;
@@ -318,7 +310,20 @@ ${fields}
 }
 
 /**
+ * Generates an idiomatic Flutter Dart file containing an AppColors class.
+ * Uses Rust code generator when available.
+ */
+export async function generateFlutterColorsDartFile(variables: ColorVariableItem[]): Promise<string> {
+  try {
+    return await invoke<string>("generate_flutter_colors_code", { variables });
+  } catch {
+    return fallbackGenerateFlutterColorsDartFile(variables);
+  }
+}
+
+/**
  * Saves color variables back to a Flutter file (e.g. lib/theme/app_colors.dart).
+ * Uses Rust code generation.
  */
 export async function saveFlutterThemeVariables(
   variables: ColorVariableItem[],
@@ -329,7 +334,7 @@ export async function saveFlutterThemeVariables(
     ? `${projectPath.replace(/\/+$/, "")}/${targetRelativePath}`
     : targetRelativePath;
 
-  const dartCode = generateFlutterColorsDartFile(variables);
+  const dartCode = await generateFlutterColorsDartFile(variables);
 
   if (projectPath) {
     try {
@@ -344,15 +349,33 @@ export async function saveFlutterThemeVariables(
     }
   }
 
-  const fileName = targetRelativePath.split("/").pop() || "app_colors.dart";
-  useWorkspaceStore.getState().addTab({
-    id: filePath,
-    name: fileName,
-    path: filePath,
-    isActive: false,
-    isModified: false,
-    content: dartCode,
-  });
+  // Quietly update tab content if app_colors.dart is already open, but never force-open or activate it
+  const store = useWorkspaceStore.getState();
+  const existingTab = store.tabs.find((t) => t.id === filePath || t.path === filePath);
+  if (existingTab) {
+    store.updateTabContent(existingTab.id, dartCode);
+  }
 
   return { success: true, filePath };
+}
+
+/**
+ * Updates a single color variable in an existing file using surgical AST replacement in Rust.
+ */
+export async function updateSingleThemeColor(
+  filePath: string,
+  variableName: string,
+  newHex: string
+): Promise<boolean> {
+  try {
+    await invoke("update_theme_color_in_file", {
+      filePath,
+      varName: variableName,
+      newHex,
+    });
+    return true;
+  } catch (err) {
+    console.warn("Failed to update single theme color with Rust AST engine:", err);
+    return false;
+  }
 }

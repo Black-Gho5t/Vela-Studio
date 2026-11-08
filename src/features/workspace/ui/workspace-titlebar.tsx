@@ -10,10 +10,7 @@ import {
   Play,
   Bug,
   Hammer,
-  RefreshCcw,
-  StepForward,
   CornerUpRight,
-  Bot,
   ChevronDown,
   MoreVertical,
   Layers,
@@ -24,6 +21,9 @@ import {
   User,
   Users,
   HelpCircle,
+  RotateCcw,
+  Zap,
+  FileCode2,
 } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
@@ -78,7 +78,6 @@ const layoutButtons = [
 const user = {
   name: "Brian Pech",
   email: "brian@example.com",
-  avatar: "https://github.com/shadcn.png",
 };
 
 // ── component ─────────────────────────────────────────────────────────────────
@@ -266,7 +265,7 @@ export function WorkspaceTitlebar({
     <header
       data-tauri-drag-region
       className={cn(
-        "relative flex h-[36px] w-full shrink-0 items-center justify-between border-b border-border/60 bg-background/95 backdrop-blur select-none z-20 transition-[padding] duration-150",
+        "relative flex h-[36px] w-full shrink-0 items-center justify-between bg-background/95 backdrop-blur select-none z-20 transition-[padding] duration-150",
         hasMacTitleBarOffset ? "pl-[78px] pr-3" : "px-3"
       )}
     >
@@ -287,17 +286,17 @@ export function WorkspaceTitlebar({
           }}
           className="flex-row items-center"
         >
-          <TabsList className="group-data-horizontal/tabs:h-7 h-7 bg-muted/60 p-0.5 rounded-lg border border-border/50">
+          <TabsList className="group-data-horizontal/tabs:h-7 h-7 bg-muted/40 p-0.5 rounded-lg border-0">
             <TabsTrigger
               value="designer"
-              className="h-6 min-w-[82px] justify-center px-2 text-xs font-medium gap-1.5 rounded-md text-muted-foreground transition-colors hover:text-foreground data-active:bg-background data-active:text-foreground data-active:shadow-xs"
+              className="h-6 min-w-[70px] justify-center px-2 text-xs font-medium gap-1 rounded-md text-muted-foreground transition-colors hover:text-foreground data-active:bg-background data-active:text-foreground data-active:shadow-xs"
             >
               <Layout className="size-3.5 opacity-70" />
               <span>Diseñador</span>
             </TabsTrigger>
             <TabsTrigger
               value="editor"
-              className="h-6 min-w-[82px] justify-center px-2 text-xs font-medium gap-1.5 rounded-md text-muted-foreground transition-colors hover:text-foreground data-active:bg-background data-active:text-foreground data-active:shadow-xs"
+              className="h-6 min-w-[70px] justify-center px-2 text-xs font-medium gap-1 rounded-md text-muted-foreground transition-colors hover:text-foreground data-active:bg-background data-active:text-foreground data-active:shadow-xs"
             >
               <Code2 className="size-3.5 opacity-70" />
               <span>Editor</span>
@@ -307,9 +306,9 @@ export function WorkspaceTitlebar({
 
         {projectName ? (
           <>
-            <div className="h-3.5 w-px bg-border/60" />
+            <div className="h-3 w-px bg-foreground/10" />
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-xs font-medium text-foreground truncate max-w-[150px]" title={projectName}>
+              <span className="text-xs font-medium text-foreground truncate max-w-[110px]" title={projectName}>
                 {projectName}
               </span>
               {gitBranch && (
@@ -330,8 +329,8 @@ export function WorkspaceTitlebar({
                         type="button"
                         disabled={isSwitchingBranch}
                         className={cn(
-                          "group/branch flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-muted-foreground",
-                          "transition-all duration-150 hover:border-border hover:bg-muted/80 hover:text-foreground cursor-pointer select-none outline-none",
+                          "group/branch flex items-center gap-1 rounded-full bg-muted/40 hover:bg-muted/70 px-2 py-0.5 text-muted-foreground",
+                          "transition-all duration-150 hover:text-foreground cursor-pointer select-none outline-none",
                           "focus-visible:ring-1 focus-visible:ring-ring active:scale-95",
                           isSwitchingBranch && "opacity-70 pointer-events-none"
                         )}
@@ -340,7 +339,7 @@ export function WorkspaceTitlebar({
                     }
                   >
                     <GitBranch className={cn("size-2.5 shrink-0 text-muted-foreground group-hover/branch:text-foreground", isSwitchingBranch && "animate-spin")} />
-                    <span className="text-[10px] font-medium text-muted-foreground group-hover/branch:text-foreground truncate max-w-[120px]">
+                    <span className="text-[10px] font-medium text-muted-foreground group-hover/branch:text-foreground truncate max-w-[85px]">
                       {isSwitchingBranch ? "Cambiando..." : gitBranch}
                     </span>
                     <ChevronDown className="size-2.5 opacity-50 shrink-0 group-hover/branch:opacity-80" />
@@ -422,11 +421,11 @@ export function WorkspaceTitlebar({
           </>
         ) : (
           <>
-            <div className="h-3.5 w-px bg-border/60" />
+            <div className="h-3 w-px bg-foreground/10" />
             <button
               type="button"
               onClick={handleOpenFolder}
-              className="flex items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground transition-all duration-150 hover:border-border hover:bg-muted/80 hover:text-foreground cursor-pointer select-none outline-none focus-visible:ring-1 focus-visible:ring-ring active:scale-95"
+              className="flex items-center gap-1.5 rounded-md bg-muted/40 hover:bg-muted/70 px-2.5 py-1 text-xs text-muted-foreground transition-all duration-150 hover:text-foreground cursor-pointer select-none outline-none focus-visible:ring-1 focus-visible:ring-ring active:scale-95"
             >
               <FolderOpen className="size-3 text-muted-foreground" />
               <span>Abrir carpeta</span>
@@ -435,10 +434,10 @@ export function WorkspaceTitlebar({
         )}
       </div>
 
-      {/* ── Center: Flutter / Android Debug & Build Controls (Dead Center) ── */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-auto z-10">
-        {projectName ? (
-          <div className="flex items-center gap-1 rounded-lg border border-border/50 bg-muted/20 px-1 py-0.5 shadow-2xs">
+      {/* ── Center: Flutter / Android Debug & Build Controls (Dead Center, hidden in designer mode) ── */}
+      <div className="absolute inset-x-0 top-0 bottom-0 flex items-center justify-center pointer-events-none z-10">
+        {projectName && currentMode !== "designer" ? (
+          <div className="pointer-events-auto flex items-center gap-1 rounded-lg bg-muted/40 hover:bg-muted/50 transition-colors p-0.5 shadow-2xs">
             {/* Target Device Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -446,21 +445,21 @@ export function WorkspaceTitlebar({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6.5 px-2 text-[11.5px] font-normal gap-1.5 text-muted-foreground hover:text-foreground"
+                    className="h-6.5 px-2 text-[11.5px] font-normal gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
                   />
                 }
               >
                 <span
                   className={cn(
-                    "size-1.5 rounded-full shrink-0",
+                    "size-1.5 rounded-full shrink-0 transition-colors",
                     daemonRunning
-                      ? "bg-primary animate-pulse"
+                      ? "bg-emerald-500 animate-pulse ring-2 ring-emerald-500/20"
                       : selectedDevice
-                      ? "bg-primary"
+                      ? "bg-emerald-500"
                       : "bg-muted-foreground/40"
                   )}
                 />
-                <span className="truncate max-w-[120px]">
+                <span className="truncate max-w-[110px]">
                   {selectedDevice ? selectedDevice.name : (devices.length > 0 ? devices[0].name : "No Devices")}
                 </span>
                 <ChevronDown className="size-3 opacity-50 shrink-0" />
@@ -492,22 +491,36 @@ export function WorkspaceTitlebar({
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <div className="w-px h-3.5 bg-border/50" />
+            <div className="w-px h-3 bg-foreground/10 shrink-0" />
 
-            {/* Target App Module */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6.5 px-2 text-[11.5px] font-normal gap-1.5 text-muted-foreground hover:text-foreground"
-            >
-              <Bot className="size-3.5 text-primary" />
-              <span>app</span>
-              <ChevronDown className="size-3 opacity-50" />
-            </Button>
+            {/* Target Entry / main.dart */}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6.5 px-2 text-[11.5px] font-normal gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                  />
+                }
+              >
+                <FileCode2 className="size-3 text-primary shrink-0" />
+                <span className="truncate max-w-[90px]">main.dart</span>
+                <ChevronDown className="size-3 opacity-50 shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="min-w-[150px]">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem className="text-xs cursor-pointer font-semibold text-primary">
+                    <FileCode2 className="size-3 mr-1.5" />
+                    <span>main.dart</span>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-            <div className="w-px h-3.5 bg-border/50" />
+            <div className="w-px h-3.5 bg-foreground/15 shrink-0 mx-0.5" />
 
-            {/* Run / Stop / Debug Action Buttons */}
+            {/* Action Buttons: Run/Stop, Debug, Hot Reload, Hot Restart, More */}
             <div className="flex items-center gap-0.5">
               {daemonRunning ? (
                 <Tooltip>
@@ -517,11 +530,11 @@ export function WorkspaceTitlebar({
                         onClick={handleStop}
                         variant="ghost"
                         size="icon"
-                        className="size-6.5 text-destructive hover:bg-destructive/15"
+                        className="size-6.5 text-destructive hover:bg-destructive/15 cursor-pointer"
                       />
                     }
                   >
-                    <Square className="size-3.5 fill-current" />
+                    <Square className="size-3 fill-current" />
                   </TooltipTrigger>
                   <TooltipContent side="bottom" sideOffset={6}>Stop</TooltipContent>
                 </Tooltip>
@@ -533,13 +546,13 @@ export function WorkspaceTitlebar({
                         onClick={handlePlay}
                         variant="ghost"
                         size="icon"
-                        className="size-6.5 text-primary hover:bg-primary/15"
+                        className="size-6.5 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/15 cursor-pointer"
                       />
                     }
                   >
-                    <Play className="size-3.5 fill-current" />
+                    <Play className="size-3 fill-current" />
                   </TooltipTrigger>
-                  <TooltipContent side="bottom" sideOffset={6}>Run</TooltipContent>
+                  <TooltipContent side="bottom" sideOffset={6}>Run (main.dart)</TooltipContent>
                 </Tooltip>
               )}
 
@@ -549,41 +562,13 @@ export function WorkspaceTitlebar({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-6.5 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      className="size-6.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 cursor-pointer"
                     />
                   }
                 >
                   <Bug className="size-3.5" />
                 </TooltipTrigger>
                 <TooltipContent side="bottom" sideOffset={6}>Debug</TooltipContent>
-              </Tooltip>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-6.5 text-muted-foreground hover:text-foreground"
-              >
-                <MoreVertical className="size-3.5" />
-              </Button>
-            </div>
-
-            <div className="w-px h-3.5 bg-border/50" />
-
-            {/* Fast Actions: Build, Hot Reload, Hot Restart, Gradle Sync */}
-            <div className="flex items-center gap-0.5">
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-6.5 text-muted-foreground hover:text-foreground"
-                    />
-                  }
-                >
-                  <Hammer className="size-3.5" />
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={6}>Make Project</TooltipContent>
               </Tooltip>
 
               <Tooltip>
@@ -594,13 +579,13 @@ export function WorkspaceTitlebar({
                       disabled={!daemonRunning}
                       variant="ghost"
                       size="icon"
-                      className="size-6.5 text-primary hover:bg-primary/15 disabled:opacity-40"
+                      className="size-6.5 text-amber-500 hover:text-amber-400 hover:bg-amber-500/15 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                     />
                   }
                 >
-                  <RefreshCcw className="size-3.5" />
+                  <Zap className="size-3.5 fill-current" />
                 </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={6}>Apply Changes (Hot Reload)</TooltipContent>
+                <TooltipContent side="bottom" sideOffset={6}>Hot Reload (⚡)</TooltipContent>
               </Tooltip>
 
               <Tooltip>
@@ -611,44 +596,45 @@ export function WorkspaceTitlebar({
                       disabled={!daemonRunning}
                       variant="ghost"
                       size="icon"
-                      className="size-6.5 text-primary hover:bg-primary/15 disabled:opacity-40"
+                      className="size-6.5 text-primary hover:bg-primary/15 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
                     />
                   }
                 >
-                  <StepForward className="size-3.5" />
+                  <RotateCcw className="size-3" />
                 </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={6}>Hot Restart</TooltipContent>
+                <TooltipContent side="bottom" sideOffset={6}>Hot Restart (⇧⌘\)</TooltipContent>
               </Tooltip>
 
-              <Tooltip>
-                <TooltipTrigger
+              {/* More Actions Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger
                   render={
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-6.5 text-muted-foreground hover:text-foreground"
+                      className="size-6.5 text-muted-foreground hover:text-foreground cursor-pointer"
                     />
                   }
                 >
-                  <CornerUpRight className="size-3.5" />
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={6}>Step Out</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-6.5 text-muted-foreground hover:text-foreground"
-                    />
-                  }
-                >
-                  <Layers className="size-3.5" />
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={6}>Sync Project with Gradle Files</TooltipContent>
-              </Tooltip>
+                  <MoreVertical className="size-3.5" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="min-w-[180px]">
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem className="text-xs cursor-pointer">
+                      <Hammer className="size-3.5 mr-2 text-muted-foreground" />
+                      <span>Compilar proyecto</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-xs cursor-pointer">
+                      <Layers className="size-3.5 mr-2 text-muted-foreground" />
+                      <span>Sincronizar Gradle / Pub</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-xs cursor-pointer">
+                      <CornerUpRight className="size-3.5 mr-2 text-muted-foreground" />
+                      <span>Step Out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         ) : null}
@@ -660,7 +646,7 @@ export function WorkspaceTitlebar({
         {/* Panel toggles (hidden in designer mode) */}
         {currentMode !== "designer" && (
           <>
-            <div className="flex items-center gap-0.5 rounded-lg border border-border/50 bg-muted/20 p-0.5">
+            <div className="flex items-center gap-0.5">
               {layoutButtons.map(({ key, icon: Icon, label, shortcut }) => (
                 <Tooltip key={key}>
                   <TooltipTrigger
@@ -670,8 +656,10 @@ export function WorkspaceTitlebar({
                         variant="ghost"
                         size="icon"
                         className={cn(
-                          "size-6 rounded-md text-muted-foreground transition-all hover:bg-muted hover:text-foreground",
-                          panelState[key] && "bg-background text-foreground shadow-xs",
+                          "size-7 rounded-md text-muted-foreground transition-all duration-150 hover:bg-muted/60 hover:text-foreground",
+                          panelState[key]
+                            ? "text-foreground opacity-100 bg-muted/30"
+                            : "opacity-60 hover:opacity-100"
                         )}
                         aria-label={label}
                         aria-pressed={panelState[key]}
@@ -692,7 +680,7 @@ export function WorkspaceTitlebar({
             </div>
 
             {/* Divider */}
-            <div className="mx-1 h-3.5 w-px bg-border/60" />
+            <div className="mx-1 h-3 w-px bg-foreground/10" />
           </>
         )}
 
@@ -707,8 +695,8 @@ export function WorkspaceTitlebar({
               />
             }
           >
-            <Avatar className="size-6 rounded-lg">
-              <AvatarImage src={user.avatar} alt={user.name} />
+            <Avatar name={user.name} className="size-6 rounded-lg">
+              <AvatarImage alt={user.name} />
               <AvatarFallback className="rounded-lg text-[10px]">
                 {initials}
               </AvatarFallback>
@@ -724,8 +712,8 @@ export function WorkspaceTitlebar({
             <DropdownMenuGroup>
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5">
-                  <Avatar className="h-8 w-8 rounded-lg">
-                    <AvatarImage src={user.avatar} alt={user.name} />
+                  <Avatar name={user.name} className="h-8 w-8 rounded-lg">
+                    <AvatarImage alt={user.name} />
                     <AvatarFallback className="rounded-lg text-xs">
                       {initials}
                     </AvatarFallback>

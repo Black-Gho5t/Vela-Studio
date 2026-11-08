@@ -29,7 +29,7 @@ fn walk_node(node: Node, source: &[u8]) -> Option<WidgetNode> {
             if child.kind() == "identifier" || child.kind() == "type_identifier" {
                 if let Ok(text) = std::str::from_utf8(&source[child.start_byte()..child.end_byte()]) {
                     match text {
-                        "Scaffold" | "AppBar" | "Container" | "Column" | "Row" | "Text" | "ElevatedButton" | "Center" | "Padding" | "SizedBox" => {
+                        "Scaffold" | "AppBar" | "Container" | "Column" | "Row" | "Text" | "ElevatedButton" | "Center" | "Padding" | "SizedBox" | "TextField" | "Card" | "Icon" | "Stack" | "SingleChildScrollView" | "FilledButton" | "OutlinedButton" => {
                             text_opt = Some(text.to_string());
                             widget_type = text.to_string();
                             stable_id = format!("{}-{}", text.to_lowercase(), node.start_byte());
@@ -378,3 +378,495 @@ pub fn update_widget_property(file_path: &str, node_id: &str, prop_key: &str, pr
         return Ok(());
     }
 }
+
+// ---------------------------------------------------------------------------
+// Flutter Theme & Color Variable AST Engine (Tree-sitter)
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ColorVariableItem {
+    pub id: String,
+    pub name: String,
+    pub value: String,
+    pub description: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct ThemeScanResult {
+    pub variables: Vec<ColorVariableItem>,
+    pub source_file: Option<String>,
+}
+
+fn get_flutter_material_color(name: &str) -> Option<&'static str> {
+    match name {
+        "deepPurple" => Some("#6750a4"),
+        "purple" => Some("#9c27b0"),
+        "blue" => Some("#2196f3"),
+        "lightBlue" => Some("#03a9f4"),
+        "cyan" => Some("#00bcd4"),
+        "teal" => Some("#009688"),
+        "green" => Some("#4caf50"),
+        "lightGreen" => Some("#8bc34a"),
+        "lime" => Some("#cddc39"),
+        "yellow" => Some("#ffeb3b"),
+        "amber" => Some("#ffc107"),
+        "orange" => Some("#ff9800"),
+        "deepOrange" => Some("#ff5722"),
+        "red" => Some("#f44336"),
+        "pink" => Some("#e91e63"),
+        "indigo" => Some("#3f51b5"),
+        "blueGrey" => Some("#607d8b"),
+        "grey" => Some("#9e9e9e"),
+        "brown" => Some("#795548"),
+        "black" => Some("#000000"),
+        "white" => Some("#ffffff"),
+        _ => None,
+    }
+}
+
+pub fn parse_color_from_node(node: Node, source: &[u8]) -> Option<String> {
+    let kind = node.kind();
+    if kind == "call_expression" {
+        let mut callee_name = String::new();
+        let mut args_node = None;
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "identifier" || child.kind() == "member_expression" {
+                if let Ok(text) = child.utf8_text(source) {
+                    callee_name = text.to_string();
+                }
+            } else if child.kind() == "arguments" {
+                args_node = Some(child);
+            }
+        }
+
+        if let Some(args) = args_node {
+            let mut arg_cursor = args.walk();
+            let positional_args: Vec<Node> = args
+                .children(&mut arg_cursor)
+                .filter(|c| c.kind() != "(" && c.kind() != ")" && c.kind() != ",")
+                .collect();
+
+            if callee_name == "Color" && !positional_args.is_empty() {
+                let first_arg = positional_args[0];
+                if let Ok(raw) = first_arg.utf8_text(source) {
+                    let trimmed = raw.trim();
+                    if trimmed.starts_with("0x") || trimmed.starts_with("0X") {
+                        let hex_digits = &trimmed[2..];
+                        if hex_digits.len() == 8 {
+                            let a = &hex_digits[0..2];
+                            let rgb = &hex_digits[2..8];
+                            if a.eq_ignore_ascii_case("ff") {
+                                return Some(format!("#{}", rgb.to_lowercase()));
+                            } else {
+                                return Some(format!("#{a}{rgb}", a = a.to_lowercase(), rgb = rgb.to_lowercase()));
+                            }
+                        } else if hex_digits.len() == 6 {
+                            return Some(format!("#{}", hex_digits.to_lowercase()));
+                        }
+                    } else if let Ok(int_val) = trimmed.parse::<u64>() {
+                        let hex_digits = format!("{:08x}", int_val);
+                        if hex_digits.len() == 8 {
+                            let a = &hex_digits[0..2];
+                            let rgb = &hex_digits[2..8];
+                            if a == "ff" {
+                                return Some(format!("#{}", rgb));
+                            } else {
+                                return Some(format!("#{}{}", a, rgb));
+                            }
+                        }
+                    }
+                }
+            } else if callee_name == "Color.fromRGBO" && positional_args.len() >= 3 {
+                if let (Ok(r_str), Ok(g_str), Ok(b_str)) = (
+                    positional_args[0].utf8_text(source),
+                    positional_args[1].utf8_text(source),
+                    positional_args[2].utf8_text(source),
+                ) {
+                    if let (Ok(r), Ok(g), Ok(b)) = (
+                        r_str.trim().parse::<u8>(),
+                        g_str.trim().parse::<u8>(),
+                        b_str.trim().parse::<u8>(),
+                    ) {
+                        return Some(format!("#{:02x}{:02x}{:02x}", r, g, b));
+                    }
+                }
+            } else if callee_name == "Color.fromARGB" && positional_args.len() >= 4 {
+                if let (Ok(a_str), Ok(r_str), Ok(g_str), Ok(b_str)) = (
+                    positional_args[0].utf8_text(source),
+                    positional_args[1].utf8_text(source),
+                    positional_args[2].utf8_text(source),
+                    positional_args[3].utf8_text(source),
+                ) {
+                    if let (Ok(a), Ok(r), Ok(g), Ok(b)) = (
+                        a_str.trim().parse::<u8>(),
+                        r_str.trim().parse::<u8>(),
+                        g_str.trim().parse::<u8>(),
+                        b_str.trim().parse::<u8>(),
+                    ) {
+                        if a == 255 {
+                            return Some(format!("#{:02x}{:02x}{:02x}", r, g, b));
+                        } else {
+                            return Some(format!("#{:02x}{:02x}{:02x}{:02x}", a, r, g, b));
+                        }
+                    }
+                }
+            }
+        }
+    } else if kind == "member_expression" {
+        if let Ok(text) = node.utf8_text(source) {
+            let parts: Vec<&str> = text.split('.').collect();
+            if parts.len() == 2 && parts[0] == "Colors" {
+                if let Some(color) = get_flutter_material_color(parts[1]) {
+                    return Some(color.to_string());
+                }
+            }
+        }
+    }
+
+    None
+}
+
+fn extract_named_arg<'a>(node: Node<'a>, source: &'a [u8]) -> (Option<String>, Option<Node<'a>>) {
+    let mut label = None;
+    let mut value_node = None;
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if child.kind() == "label" {
+            if let Ok(text) = child.utf8_text(source) {
+                label = Some(text.trim_matches(|c| c == ':' || c == ' ').to_string());
+            }
+        } else if child.kind() != ":" && child.kind() != "," {
+            value_node = Some(child);
+        }
+    }
+    (label, value_node)
+}
+
+pub fn extract_color_variables_from_dart(source_code: &str) -> Vec<ColorVariableItem> {
+    let mut parser = Parser::new();
+    let language = tree_sitter_dart::LANGUAGE;
+    if parser.set_language(&language.into()).is_err() {
+        return vec![];
+    }
+
+    let tree = match parser.parse(source_code, None) {
+        Some(t) => t,
+        None => return vec![],
+    };
+
+    let source = source_code.as_bytes();
+    let mut variables = Vec::new();
+    let mut seen_ids = std::collections::HashSet::new();
+
+    let mut add_item = |name: &str, value: &str, desc: &str| {
+        let clean_id = name.to_lowercase().replace(|c: char| !c.is_alphanumeric(), "-");
+        if !seen_ids.contains(&clean_id) {
+            seen_ids.insert(clean_id.clone());
+            variables.push(ColorVariableItem {
+                id: clean_id,
+                name: name.to_string(),
+                value: value.to_string(),
+                description: desc.to_string(),
+            });
+        }
+    };
+
+    fn walk_for_colors<F>(node: Node, source: &[u8], add_item: &mut F)
+    where
+        F: FnMut(&str, &str, &str),
+    {
+        let kind = node.kind();
+
+        if kind == "static_final_declaration" || kind == "initialized_identifier" {
+            let mut name_opt = None;
+            let mut val_node_opt = None;
+
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if child.kind() == "identifier" && name_opt.is_none() {
+                    if let Ok(name) = child.utf8_text(source) {
+                        name_opt = Some(name);
+                    }
+                } else if child.kind() == "call_expression" || child.kind() == "member_expression" {
+                    val_node_opt = Some(child);
+                }
+            }
+
+            if let (Some(name), Some(val_node)) = (name_opt, val_node_opt) {
+                if let Some(color_hex) = parse_color_from_node(val_node, source) {
+                    add_item(name, &color_hex, &format!("Variable Flutter: {}", name));
+                }
+            }
+        }
+
+        if kind == "call_expression" {
+            let mut callee = "";
+            let mut args_opt = None;
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if child.kind() == "identifier" || child.kind() == "member_expression" {
+                    if let Ok(c) = child.utf8_text(source) {
+                        callee = c;
+                    }
+                } else if child.kind() == "arguments" {
+                    args_opt = Some(child);
+                }
+            }
+
+            if callee.starts_with("ColorScheme") {
+                if let Some(args) = args_opt {
+                    let mut arg_cursor = args.walk();
+                    let mut has_seed = false;
+                    for arg in args.children(&mut arg_cursor) {
+                        if arg.kind() == "named_argument" {
+                            let (label, val_node) = extract_named_arg(arg, source);
+                            if let (Some(l), Some(v)) = (label, val_node) {
+                                if let Some(hex) = parse_color_from_node(v, source) {
+                                    if l == "seedColor" {
+                                        has_seed = true;
+                                        add_item("seedColor", &hex, "Material 3 seedColor");
+                                        add_item("primary", &hex, "ColorScheme.primary (seedColor)");
+                                    } else {
+                                        add_item(&l, &hex, &format!("ColorScheme.{}", l));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if has_seed {
+                        add_item("secondary", "#625b71", "Material 3 secondary");
+                        add_item("surface", "#fef7ff", "Material 3 surface");
+                        add_item("background", "#fef7ff", "Material 3 background");
+                        add_item("error", "#b3261e", "Material 3 error");
+                    }
+                }
+            } else if callee == "ThemeData" {
+                if let Some(args) = args_opt {
+                    let mut arg_cursor = args.walk();
+                    for arg in args.children(&mut arg_cursor) {
+                        if arg.kind() == "named_argument" {
+                            let (label, val_node) = extract_named_arg(arg, source);
+                            if let (Some(l), Some(v)) = (label, val_node) {
+                                if l.to_lowercase().contains("color") && l != "colorScheme" {
+                                    if let Some(hex) = parse_color_from_node(v, source) {
+                                        add_item(&l, &hex, &format!("ThemeData.{}", l));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            walk_for_colors(child, source, add_item);
+        }
+    }
+
+    walk_for_colors(tree.root_node(), source, &mut add_item);
+    variables
+}
+
+pub fn scan_flutter_theme_in_project(project_path: &str) -> ThemeScanResult {
+    let p = std::path::Path::new(project_path);
+    let candidates = [
+        "lib/theme/app_colors.dart",
+        "lib/theme/colors.dart",
+        "lib/theme/app_theme.dart",
+        "lib/theme/theme.dart",
+        "lib/constants/colors.dart",
+        "lib/colors.dart",
+        "lib/theme.dart",
+        "lib/main.dart",
+    ];
+
+    for rel in &candidates {
+        let file_path = p.join(rel);
+        if file_path.is_file() {
+            if let Ok(content) = fs::read_to_string(&file_path) {
+                let vars = extract_color_variables_from_dart(&content);
+                if !vars.is_empty() {
+                    return ThemeScanResult {
+                        variables: vars,
+                        source_file: Some(rel.to_string()),
+                    };
+                }
+            }
+        }
+    }
+
+    let lib_dir = p.join("lib");
+    if lib_dir.is_dir() {
+        if let Ok(entries) = fs::read_dir(&lib_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() && path.extension().map_or(false, |ext| ext == "dart") {
+                    if let Ok(content) = fs::read_to_string(&path) {
+                        if content.contains("Color(") || content.contains("Colors.") || content.contains("ColorScheme") {
+                            let vars = extract_color_variables_from_dart(&content);
+                            if !vars.is_empty() {
+                                let rel = path.strip_prefix(p).unwrap_or(&path).to_string_lossy().to_string();
+                                return ThemeScanResult {
+                                    variables: vars,
+                                    source_file: Some(rel),
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    ThemeScanResult {
+        variables: vec![],
+        source_file: None,
+    }
+}
+
+pub fn generate_flutter_colors_code(variables: &[ColorVariableItem]) -> String {
+    let mut fields = Vec::new();
+    for v in variables {
+        let clean_hex = v.value.trim_start_matches('#').to_uppercase();
+        let color_arg = if clean_hex.len() == 6 {
+            format!("0xFF{}", clean_hex)
+        } else if clean_hex.len() == 8 {
+            let rgb = &clean_hex[..6];
+            let a = &clean_hex[6..8];
+            format!("0x{}{}", a, rgb)
+        } else {
+            format!("0xFF{:0<6}", clean_hex)
+        };
+        let desc = if v.description.is_empty() { &v.name } else { &v.description };
+        fields.push(format!("  /// {}\n  static const Color {} = Color({});", desc, v.name, color_arg));
+    }
+
+    format!(
+        "import 'package:flutter/material.dart';\n\n/// Variables y tokens de color del proyecto Flutter\n/// Generado por Vela Studio (Rust AST Engine)\nclass AppColors {{\n  AppColors._();\n\n{}\n}}\n",
+        fields.join("\n\n")
+    )
+}
+
+pub fn update_theme_color_in_file(file_path: &str, var_name: &str, new_hex: &str) -> Result<(), String> {
+    let source_code = fs::read_to_string(file_path).map_err(|e| format!("Failed to read file: {}", e))?;
+    let mut parser = Parser::new();
+    let language = tree_sitter_dart::LANGUAGE;
+    parser.set_language(&language.into()).map_err(|e| e.to_string())?;
+
+    let tree = parser.parse(&source_code, None).ok_or("Failed to parse dart code")?;
+    let source = source_code.as_bytes();
+
+    fn find_var<'a>(node: Node<'a>, source: &'a [u8], var_name: &str) -> Option<Node<'a>> {
+        let kind = node.kind();
+        if kind == "static_final_declaration" || kind == "initialized_identifier" {
+            let mut name_matches = false;
+            let mut val_node = None;
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if child.kind() == "identifier" && child.utf8_text(source).ok() == Some(var_name) {
+                    name_matches = true;
+                } else if child.kind() == "call_expression" || child.kind() == "member_expression" {
+                    val_node = Some(child);
+                }
+            }
+            if name_matches && val_node.is_some() {
+                return val_node;
+            }
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if let Some(found) = find_var(child, source, var_name) {
+                return Some(found);
+            }
+        }
+        None
+    }
+
+    let target_val_node = find_var(tree.root_node(), source, var_name);
+
+    if let Some(val_node) = target_val_node {
+        let clean_hex = new_hex.trim_start_matches('#').to_uppercase();
+        let color_arg = if clean_hex.len() == 6 {
+            format!("Color(0xFF{})", clean_hex)
+        } else if clean_hex.len() == 8 {
+            let rgb = &clean_hex[..6];
+            let a = &clean_hex[6..8];
+            format!("Color(0x{}{})", a, rgb)
+        } else {
+            format!("Color(0xFF{})", clean_hex)
+        };
+
+        let start = val_node.start_byte();
+        let end = val_node.end_byte();
+
+        let mut new_source = String::new();
+        new_source.push_str(&source_code[..start]);
+        new_source.push_str(&color_arg);
+        new_source.push_str(&source_code[end..]);
+
+        fs::write(file_path, new_source).map_err(|e| format!("Failed to save dart file: {}", e))?;
+        Ok(())
+    } else {
+        Err(format!("Variable '{}' not found in file", var_name))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_color_variables() {
+        let code = r#"
+class AppColors {
+  static const Color primary = Color(0xFF6750A4);
+  static const Color onPrimary = Color(0xffffffff);
+  static const secondary = Color(0xFF625B71);
+  final error = Colors.red;
+}
+"#;
+        let vars = extract_color_variables_from_dart(code);
+        assert_eq!(vars.len(), 4);
+        assert_eq!(vars[0].name, "primary");
+        assert_eq!(vars[0].value, "#6750a4");
+        assert_eq!(vars[1].name, "onPrimary");
+        assert_eq!(vars[1].value, "#ffffff");
+        assert_eq!(vars[2].name, "secondary");
+        assert_eq!(vars[2].value, "#625b71");
+        assert_eq!(vars[3].name, "error");
+        assert_eq!(vars[3].value, "#f44336");
+    }
+
+    #[test]
+    fn test_color_scheme_parsing() {
+        let code = r#"
+final theme = ThemeData(
+  primaryColor: Color(0xFF0284C7),
+  colorScheme: ColorScheme.fromSeed(seedColor: Color(0xFF6750A4)),
+);
+"#;
+        let vars = extract_color_variables_from_dart(code);
+        assert!(vars.iter().any(|v| v.name == "primaryColor" && v.value == "#0284c7"));
+        assert!(vars.iter().any(|v| v.name == "seedColor" && v.value == "#6750a4"));
+    }
+
+    #[test]
+    fn test_generate_flutter_colors_code() {
+        let vars = vec![
+            ColorVariableItem {
+                id: "primary".into(),
+                name: "primary".into(),
+                value: "#6750A4".into(),
+                description: "Primary brand".into(),
+            },
+        ];
+        let code = generate_flutter_colors_code(&vars);
+        assert!(code.contains("class AppColors"));
+        assert!(code.contains("Color(0xFF6750A4)"));
+    }
+}
+
+

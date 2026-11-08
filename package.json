@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
+    "@blobatar/react": "^2.7.0",
     "@codingame/monaco-vscode-api": "^31.0.1",
     "@codingame/monaco-vscode-editor-service-override": "^31.0.1",
     "@codingame/monaco-vscode-languages-service-override": "^31.0.1",
@@ -24,6 +25,7 @@
     "@tauri-apps/api": "^2.12.1",
     "@tauri-apps/plugin-dialog": "^2.8.1",
     "@tauri-apps/plugin-opener": "^2.7.0",
+    "blobatar": "^2.7.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

@@ -42,7 +42,7 @@ export function WorkspaceGit() {
   return (
     <div className="flex h-full flex-col bg-background overflow-hidden">
       {/* Header */}
-      <div className="flex h-9 items-center justify-between px-3 border-b border-border/40 shrink-0">
+      <div className="flex h-9 items-center justify-between px-3 shrink-0">
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
           Source Control
         </h2>

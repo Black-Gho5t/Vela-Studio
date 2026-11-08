@@ -17,6 +17,14 @@ import {
   ScrollText,
   Layers,
   MousePointerClick,
+  Lock,
+  Unlock,
+  SlidersHorizontal,
+  Sun,
+  Moon,
+  Monitor,
+  LayoutGrid,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,70 +34,10 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { CanvasDeviceFrame, LayoutFlow, ScreenLayoutType } from "./designer-canvas";
+import { DesignerAlignmentMatrix } from "./designer-alignment-matrix";
 import { updateFlutterFileScreenLayout, getFlutterFileName } from "../model/designer-frame-file";
 
 // ── Figma-style Layout Icons ──
-function HugContentIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-    >
-      <path
-        d="M2.5 5.5H5.5V2.5M13.5 10.5H10.5V13.5M5.5 5.5L2 2M10.5 10.5L14 14"
-        stroke="currentColor"
-        strokeWidth="1.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function OrientationIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-    >
-      <rect
-        x="2.5"
-        y="1.5"
-        width="7"
-        height="12"
-        rx="1.5"
-        stroke="currentColor"
-        strokeWidth="1.2"
-      />
-      <path
-        d="M12.5 8V13M10 10.5H15"
-        stroke="currentColor"
-        strokeWidth="1.2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function FlowNoneIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 18 18"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-    >
-      <rect x="7" y="2.5" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2" />
-      <rect x="2.5" y="10.5" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2" />
-      <rect x="11.5" y="10.5" width="4" height="4" rx="1" stroke="currentColor" strokeWidth="1.2" />
-    </svg>
-  );
-}
-
 function FlowVerticalIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -168,17 +116,99 @@ function ConstrainProportionsIcon({ className }: { className?: string }) {
   );
 }
 
-function SpacingIcon({ className }: { className?: string }) {
+function AutoLayoutHeaderIcon({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 14 14"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-    >
-      <rect x="1.5" y="2" width="2.5" height="10" rx="0.75" stroke="currentColor" strokeWidth="1.2" />
-      <rect x="10" y="2" width="2.5" height="10" rx="0.75" stroke="currentColor" strokeWidth="1.2" />
-      <path d="M5.5 7H8.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <rect x="2" y="2.5" width="4.5" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+      <rect x="9.5" y="2.5" width="4.5" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  );
+}
+
+function FlowScatterIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <rect x="2.5" y="2.5" width="3.5" height="3.5" rx="0.75" stroke="currentColor" strokeWidth="1.2" />
+      <rect x="10" y="3.5" width="3.5" height="3.5" rx="0.75" stroke="currentColor" strokeWidth="1.2" />
+      <rect x="5.5" y="10" width="3.5" height="3.5" rx="0.75" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  );
+}
+
+function ReverseFlowIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <path
+        d="M12.5 4V7.5C12.5 8.60457 11.6046 9.5 10.5 9.5H3.5M3.5 9.5L6.5 6.5M3.5 9.5L6.5 12.5"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function GapFigmaIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <path d="M4 4.5H2.5V11.5H4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="8" cy="8" r="1.2" fill="currentColor" />
+      <path d="M12 4.5H13.5V11.5H12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function PaddingHorizontalIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <rect x="2.5" y="3" width="11" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.2" opacity="0.3" />
+      <path d="M5.5 3V13M10.5 3V13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PaddingVerticalIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <rect x="2.5" y="3" width="11" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.2" opacity="0.3" />
+      <path d="M2.5 6H13.5M2.5 10H13.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PaddingIndividualIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <path
+        d="M2.5 5.5V3C2.5 2.72386 2.72386 2.5 3 2.5H5.5M10.5 2.5H13C13.2761 2.5 13.5 2.72386 13.5 3V5.5M13.5 10.5V13C13.5 13.2761 13.2761 13.5 13 13.5H10.5M5.5 13.5H3C2.72386 13.5 2.5 13.2761 2.5 13V10.5"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CornerRadiusIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <path
+        d="M2.5 13.5V6.5C2.5 4.29086 4.29086 2.5 6.5 2.5H13.5"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function OpacityIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <circle cx="8" cy="8" r="5.5" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M8 2.5V13.5C11.0376 13.5 13.5 11.0376 13.5 8C13.5 4.96243 11.0376 2.5 8 2.5Z" fill="currentColor" />
     </svg>
   );
 }
@@ -219,6 +249,33 @@ function DropShadowIcon({ className }: { className?: string }) {
   );
 }
 
+function extractUniqueColors(frame: CanvasDeviceFrame): { color: string; count: number }[] {
+  const map: Record<string, number> = {};
+
+  if (frame.hasFill !== false && frame.fill && frame.fill.startsWith("#")) {
+    const c = frame.fill.toUpperCase();
+    map[c] = (map[c] || 0) + 1;
+  }
+
+  if (frame.stroke && frame.stroke.visible && frame.stroke.color.startsWith("#")) {
+    const c = frame.stroke.color.toUpperCase();
+    map[c] = (map[c] || 0) + 1;
+  }
+
+  (frame.elements || []).forEach((el) => {
+    if (el.color && el.color.startsWith("#")) {
+      const c = el.color.toUpperCase();
+      map[c] = (map[c] || 0) + 1;
+    }
+    if (el.textColor && el.textColor.startsWith("#")) {
+      const c = el.textColor.toUpperCase();
+      map[c] = (map[c] || 0) + 1;
+    }
+  });
+
+  return Object.entries(map).map(([color, count]) => ({ color, count }));
+}
+
 interface DesignerFramePropertiesProps {
   frame: CanvasDeviceFrame;
   allFrames?: CanvasDeviceFrame[];
@@ -250,6 +307,17 @@ export function DesignerFrameProperties({
   const [hInput, setHInput] = React.useState<string>(String(Math.round(frame.height)));
   const [spacingInput, setSpacingInput] = React.useState<string>(String(frame.spacing ?? 16));
   const [rotInput, setRotInput] = React.useState<string>(String(frame.rotation || 0));
+  const [opacityInput, setOpacityInput] = React.useState<string>(String(frame.opacity ?? 100));
+  const [cornerRadiusInput, setCornerRadiusInput] = React.useState<string>(String(frame.cornerRadius ?? 0));
+
+  // Padding states
+  const [paddingMode, setPaddingMode] = React.useState<"symmetric" | "individual">("symmetric");
+  const [padHInput, setPadHInput] = React.useState<string>(String(frame.padding?.left ?? 0));
+  const [padVInput, setPadVInput] = React.useState<string>(String(frame.padding?.top ?? 0));
+  const [padTInput, setPadTInput] = React.useState<string>(String(frame.padding?.top ?? 0));
+  const [padRInput, setPadRInput] = React.useState<string>(String(frame.padding?.right ?? 0));
+  const [padBInput, setPadBInput] = React.useState<string>(String(frame.padding?.bottom ?? 0));
+  const [padLInput, setPadLInput] = React.useState<string>(String(frame.padding?.left ?? 0));
 
   // Fill, Stroke, Effects local states
   const [fillHexInput, setFillHexInput] = React.useState<string>(
@@ -292,6 +360,107 @@ export function DesignerFrameProperties({
   React.useEffect(() => {
     setFillOpacityInput(String(frame.fillOpacity ?? 100));
   }, [frame.fillOpacity]);
+
+  React.useEffect(() => {
+    setOpacityInput(String(frame.opacity ?? 100));
+  }, [frame.opacity]);
+
+  React.useEffect(() => {
+    setCornerRadiusInput(String(frame.cornerRadius ?? 0));
+  }, [frame.cornerRadius]);
+
+  const commitOpacity = (val: number) => {
+    if (!isNaN(val)) {
+      const clamped = Math.max(0, Math.min(100, Math.round(val)));
+      onChangeFrame({ ...frame, opacity: clamped });
+    }
+  };
+
+  const commitCornerRadius = (val: number) => {
+    if (!isNaN(val)) {
+      const clamped = Math.max(0, Math.round(val));
+      onChangeFrame({ ...frame, cornerRadius: clamped });
+    }
+  };
+
+  React.useEffect(() => {
+    const p = frame.padding || { top: 0, right: 0, bottom: 0, left: 0 };
+    setPadHInput(String(p.left || 0));
+    setPadVInput(String(p.top || 0));
+    setPadTInput(String(p.top || 0));
+    setPadRInput(String(p.right || 0));
+    setPadBInput(String(p.bottom || 0));
+    setPadLInput(String(p.left || 0));
+  }, [frame.padding]);
+
+  const commitPaddingSymmetric = (h: number, v: number) => {
+    onChangeFrame({
+      ...frame,
+      padding: { top: v, right: h, bottom: v, left: h },
+    });
+  };
+
+  const commitPaddingIndividual = (t: number, r: number, b: number, l: number) => {
+    onChangeFrame({
+      ...frame,
+      padding: { top: t, right: r, bottom: b, left: l },
+    });
+  };
+
+  // Dynamic extraction of colors used in this frame
+  const frameColors = React.useMemo(() => extractUniqueColors(frame), [frame]);
+
+  const handleReplaceColor = (oldColor: string, newColor: string) => {
+    const cleanOld = oldColor.toUpperCase();
+    const cleanNew = newColor.toUpperCase();
+
+    const updatedFrame: CanvasDeviceFrame = {
+      ...frame,
+      fill: frame.fill?.toUpperCase() === cleanOld ? cleanNew : frame.fill,
+      stroke:
+        frame.stroke && frame.stroke.color.toUpperCase() === cleanOld
+          ? { ...frame.stroke, color: cleanNew }
+          : frame.stroke,
+      elements: (frame.elements || []).map((el) => ({
+        ...el,
+        color: el.color?.toUpperCase() === cleanOld ? cleanNew : el.color,
+        textColor: el.textColor?.toUpperCase() === cleanOld ? cleanNew : el.textColor,
+      })),
+    };
+    onChangeFrame(updatedFrame);
+  };
+
+  const handleAddLayoutGrid = () => {
+    onChangeFrame({
+      ...frame,
+      layoutGrid: {
+        type: "columns",
+        count: 4,
+        gutter: 8,
+        margin: 16,
+        color: "rgba(255, 0, 80, 0.08)",
+        visible: true,
+      },
+    });
+  };
+
+  const handleToggleLayoutGridVisible = () => {
+    if (!frame.layoutGrid) return;
+    onChangeFrame({
+      ...frame,
+      layoutGrid: {
+        ...frame.layoutGrid,
+        visible: !frame.layoutGrid.visible,
+      },
+    });
+  };
+
+  const handleRemoveLayoutGrid = () => {
+    onChangeFrame({
+      ...frame,
+      layoutGrid: undefined,
+    });
+  };
 
   // Position & Dimension commit helpers
   const commitX = (val: number) => {
@@ -340,28 +509,6 @@ export function DesignerFrameProperties({
 
   const handleFlowChange = (newFlow: LayoutFlow) => {
     onChangeFrame({ ...frame, layoutFlow: newFlow });
-  };
-
-  const handleHugContent = () => {
-    let standardW = 402;
-    let standardH = 874;
-    if (frame.type === "android") {
-      standardW = 380;
-      standardH = 830;
-    } else {
-      if (frame.name.toLowerCase().includes("pro max")) {
-        standardW = 440;
-        standardH = 956;
-      } else if (frame.name.includes("16") && !frame.name.toLowerCase().includes("pro")) {
-        standardW = 393;
-        standardH = 852;
-      }
-    }
-    onChangeFrame({ ...frame, width: standardW, height: standardH });
-  };
-
-  const handleToggleOrientation = () => {
-    onChangeFrame({ ...frame, width: frame.height, height: frame.width });
   };
 
   const commitRotation = (val: number) => {
@@ -630,13 +777,51 @@ export function DesignerFrameProperties({
                 {selectedElement.name}
               </span>
             </div>
-            <button
-              type="button"
-              onClick={() => onSelectElementId?.("")}
-              className="text-[10px] text-muted-foreground hover:text-foreground shrink-0 transition-colors"
-            >
-              Deseleccionar
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                title={selectedElement.isVisible === false ? "Mostrar elemento" : "Ocultar elemento"}
+                onClick={() => {
+                  onChangeFrame({
+                    ...frame,
+                    elements: (frame.elements || []).map((el) =>
+                      el.id === selectedElement.id ? { ...el, isVisible: el.isVisible === false ? true : false } : el
+                    ),
+                  });
+                }}
+                className={cn(
+                  "p-1 rounded hover:bg-sidebar-accent text-muted-foreground transition-colors",
+                  selectedElement.isVisible === false && "text-destructive"
+                )}
+              >
+                {selectedElement.isVisible === false ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
+              </button>
+              <button
+                type="button"
+                title={selectedElement.isLocked ? "Desbloquear elemento" : "Bloquear elemento"}
+                onClick={() => {
+                  onChangeFrame({
+                    ...frame,
+                    elements: (frame.elements || []).map((el) =>
+                      el.id === selectedElement.id ? { ...el, isLocked: !el.isLocked } : el
+                    ),
+                  });
+                }}
+                className={cn(
+                  "p-1 rounded hover:bg-sidebar-accent text-muted-foreground transition-colors",
+                  selectedElement.isLocked && "text-amber-500"
+                )}
+              >
+                {selectedElement.isLocked ? <Lock className="size-3" /> : <Unlock className="size-3" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectElementId?.("")}
+                className="text-[10px] text-muted-foreground hover:text-foreground shrink-0 transition-colors ml-1"
+              >
+                Deseleccionar
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-1.5 text-xs font-mono">
@@ -676,6 +861,206 @@ export function DesignerFrameProperties({
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-1.5 text-xs font-mono">
+            <div className="flex items-center gap-1 px-2 py-1 rounded bg-background border border-border">
+              <span className="text-muted-foreground text-[10px] w-3">W</span>
+              <input
+                type="number"
+                disabled={selectedElement.widthMode === "fill" || selectedElement.widthMode === "hug"}
+                placeholder={selectedElement.widthMode || "auto"}
+                value={selectedElement.widthMode === "fill" ? "" : (selectedElement.width || "")}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 0;
+                  onChangeFrame({
+                    ...frame,
+                    elements: (frame.elements || []).map((el) =>
+                      el.id === selectedElement.id ? { ...el, width: val, widthMode: "fixed" } : el
+                    ),
+                  });
+                }}
+                className="w-full bg-transparent outline-none text-foreground text-xs disabled:opacity-50"
+              />
+              <select
+                value={selectedElement.widthMode || "fixed"}
+                onChange={(e) => {
+                  const mode = e.target.value as any;
+                  onChangeFrame({
+                    ...frame,
+                    elements: (frame.elements || []).map((el) =>
+                      el.id === selectedElement.id ? { ...el, widthMode: mode } : el
+                    ),
+                  });
+                }}
+                className="bg-transparent text-[9px] text-muted-foreground cursor-pointer outline-none uppercase"
+              >
+                <option value="fixed">Fix</option>
+                <option value="hug">Hug</option>
+                <option value="fill">Fill</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-1 px-2 py-1 rounded bg-background border border-border">
+              <span className="text-muted-foreground text-[10px] w-3">H</span>
+              <input
+                type="number"
+                disabled={selectedElement.heightMode === "fill" || selectedElement.heightMode === "hug"}
+                placeholder={selectedElement.heightMode || "auto"}
+                value={selectedElement.heightMode === "fill" ? "" : (selectedElement.height || "")}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 0;
+                  onChangeFrame({
+                    ...frame,
+                    elements: (frame.elements || []).map((el) =>
+                      el.id === selectedElement.id ? { ...el, height: val, heightMode: "fixed" } : el
+                    ),
+                  });
+                }}
+                className="w-full bg-transparent outline-none text-foreground text-xs disabled:opacity-50"
+              />
+              <select
+                value={selectedElement.heightMode || "fixed"}
+                onChange={(e) => {
+                  const mode = e.target.value as any;
+                  onChangeFrame({
+                    ...frame,
+                    elements: (frame.elements || []).map((el) =>
+                      el.id === selectedElement.id ? { ...el, heightMode: mode } : el
+                    ),
+                  });
+                }}
+                className="bg-transparent text-[9px] text-muted-foreground cursor-pointer outline-none uppercase"
+              >
+                <option value="fixed">Fix</option>
+                <option value="hug">Hug</option>
+                <option value="fill">Fill</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[10px] text-muted-foreground font-medium">Padding (L / T / R / B)</span>
+            <div className="grid grid-cols-4 gap-1 text-[10px] font-mono">
+              <input
+                type="number"
+                placeholder="L"
+                title="Padding Izquierdo"
+                value={selectedElement.padding?.left ?? ""}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 0;
+                  onChangeFrame({
+                    ...frame,
+                    elements: (frame.elements || []).map((el) =>
+                      el.id === selectedElement.id
+                        ? {
+                            ...el,
+                            padding: {
+                              top: el.padding?.top ?? 0,
+                              right: el.padding?.right ?? 0,
+                              bottom: el.padding?.bottom ?? 0,
+                              left: val,
+                            },
+                          }
+                        : el
+                    ),
+                  });
+                }}
+                className="px-1.5 py-1 rounded bg-background border border-border text-center outline-none text-foreground"
+              />
+              <input
+                type="number"
+                placeholder="T"
+                title="Padding Superior"
+                value={selectedElement.padding?.top ?? ""}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 0;
+                  onChangeFrame({
+                    ...frame,
+                    elements: (frame.elements || []).map((el) =>
+                      el.id === selectedElement.id
+                        ? {
+                            ...el,
+                            padding: {
+                              top: val,
+                              right: el.padding?.right ?? 0,
+                              bottom: el.padding?.bottom ?? 0,
+                              left: el.padding?.left ?? 0,
+                            },
+                          }
+                        : el
+                    ),
+                  });
+                }}
+                className="px-1.5 py-1 rounded bg-background border border-border text-center outline-none text-foreground"
+              />
+              <input
+                type="number"
+                placeholder="R"
+                title="Padding Derecho"
+                value={selectedElement.padding?.right ?? ""}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 0;
+                  onChangeFrame({
+                    ...frame,
+                    elements: (frame.elements || []).map((el) =>
+                      el.id === selectedElement.id
+                        ? {
+                            ...el,
+                            padding: {
+                              top: el.padding?.top ?? 0,
+                              right: val,
+                              bottom: el.padding?.bottom ?? 0,
+                              left: el.padding?.left ?? 0,
+                            },
+                          }
+                        : el
+                    ),
+                  });
+                }}
+                className="px-1.5 py-1 rounded bg-background border border-border text-center outline-none text-foreground"
+              />
+              <input
+                type="number"
+                placeholder="B"
+                title="Padding Inferior"
+                value={selectedElement.padding?.bottom ?? ""}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 0;
+                  onChangeFrame({
+                    ...frame,
+                    elements: (frame.elements || []).map((el) =>
+                      el.id === selectedElement.id
+                        ? {
+                            ...el,
+                            padding: {
+                              top: el.padding?.top ?? 0,
+                              right: el.padding?.right ?? 0,
+                              bottom: val,
+                              left: el.padding?.left ?? 0,
+                            },
+                          }
+                        : el
+                    ),
+                  });
+                }}
+                className="px-1.5 py-1 rounded bg-background border border-border text-center outline-none text-foreground"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-[10px] text-muted-foreground font-medium">Alineación</span>
+            <DesignerAlignmentMatrix
+              value={selectedElement.alignment || "center"}
+              onChange={(align) => {
+                onChangeFrame({
+                  ...frame,
+                  elements: (frame.elements || []).map((el) =>
+                    el.id === selectedElement.id ? { ...el, alignment: align } : el
+                  ),
+                });
+              }}
+            />
+          </div>
+
           <div className="flex items-center gap-1 px-2 py-1 rounded bg-background border border-border">
             <span className="text-muted-foreground text-[10px] shrink-0">Texto</span>
             <input
@@ -692,6 +1077,82 @@ export function DesignerFrameProperties({
               }}
               className="w-full bg-transparent outline-none text-foreground text-xs font-sans"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-1.5 text-xs font-mono">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-background border border-border">
+              <span className="text-muted-foreground text-[10px] shrink-0">Color</span>
+              <input
+                type="color"
+                value={selectedElement.color?.startsWith("#") ? selectedElement.color : "#0ea5e9"}
+                onChange={(e) => {
+                  const newColor = e.target.value;
+                  onChangeFrame({
+                    ...frame,
+                    elements: (frame.elements || []).map((el) =>
+                      el.id === selectedElement.id ? { ...el, color: newColor } : el
+                    ),
+                  });
+                }}
+                className="size-4 rounded cursor-pointer border-0 p-0 bg-transparent shrink-0"
+              />
+              <span className="text-[10px] text-muted-foreground truncate">{selectedElement.color || "#0ea5e9"}</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-background border border-border">
+              <span className="text-muted-foreground text-[10px] shrink-0">Texto</span>
+              <input
+                type="color"
+                value={selectedElement.textColor?.startsWith("#") ? selectedElement.textColor : "#000000"}
+                onChange={(e) => {
+                  const newColor = e.target.value;
+                  onChangeFrame({
+                    ...frame,
+                    elements: (frame.elements || []).map((el) =>
+                      el.id === selectedElement.id ? { ...el, textColor: newColor } : el
+                    ),
+                  });
+                }}
+                className="size-4 rounded cursor-pointer border-0 p-0 bg-transparent shrink-0"
+              />
+              <span className="text-[10px] text-muted-foreground truncate">{selectedElement.textColor || "#000"}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1.5 text-xs font-mono">
+            <div className="flex items-center gap-1 px-2 py-1 rounded bg-background border border-border">
+              <span className="text-muted-foreground text-[10px] shrink-0">Fuente</span>
+              <input
+                type="number"
+                value={selectedElement.fontSize || 16}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 16;
+                  onChangeFrame({
+                    ...frame,
+                    elements: (frame.elements || []).map((el) =>
+                      el.id === selectedElement.id ? { ...el, fontSize: val } : el
+                    ),
+                  });
+                }}
+                className="w-full bg-transparent outline-none text-foreground text-xs"
+              />
+            </div>
+            <div className="flex items-center gap-1 px-2 py-1 rounded bg-background border border-border">
+              <span className="text-muted-foreground text-[10px] shrink-0">Radio</span>
+              <input
+                type="number"
+                value={selectedElement.borderRadius ?? 8}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 0;
+                  onChangeFrame({
+                    ...frame,
+                    elements: (frame.elements || []).map((el) =>
+                      el.id === selectedElement.id ? { ...el, borderRadius: val } : el
+                    ),
+                  });
+                }}
+                className="w-full bg-transparent outline-none text-foreground text-xs"
+              />
+            </div>
           </div>
 
           <Button
@@ -712,11 +1173,13 @@ export function DesignerFrameProperties({
         </div>
       )}
 
-      {/* ── 1. Layout Alignments Bar ── */}
-      <div className="space-y-1.5">
+      {/* ── 1. Grupo Posición (Alineación H/V, Coordenadas X/Y, Rotación) ── */}
+      <div className="space-y-2">
         <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground px-1">
-          Alineación
+          Posición
         </span>
+
+        {/* Opciones de alineación horizontal y vertical */}
         <div className="flex items-center justify-between p-1 rounded-lg border border-sidebar-border bg-sidebar-accent/30">
           <div className="flex items-center gap-0.5">
             <Tooltip>
@@ -814,13 +1277,125 @@ export function DesignerFrameProperties({
             </Tooltip>
           </div>
         </div>
+
+        {/* Coordenadas X e Y */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="flex items-center h-7 px-2 rounded-md border border-sidebar-border bg-background/50 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+            <span className="text-[10px] font-mono font-medium text-muted-foreground mr-1.5 select-none">
+              X
+            </span>
+            <input
+              type="number"
+              value={xInput}
+              onChange={(e) => setXInput(e.target.value)}
+              onBlur={() => commitX(parseFloat(xInput))}
+              onKeyDown={(e) => handlePositionKeyDown(e, "x")}
+              className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <span className="text-[10px] font-mono text-muted-foreground/60 select-none">
+              px
+            </span>
+          </div>
+
+          <div className="flex items-center h-7 px-2 rounded-md border border-sidebar-border bg-background/50 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+            <span className="text-[10px] font-mono font-medium text-muted-foreground mr-1.5 select-none">
+              Y
+            </span>
+            <input
+              type="number"
+              value={yInput}
+              onChange={(e) => setYInput(e.target.value)}
+              onBlur={() => commitY(parseFloat(yInput))}
+              onKeyDown={(e) => handlePositionKeyDown(e, "y")}
+              className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <span className="text-[10px] font-mono text-muted-foreground/60 select-none">
+              px
+            </span>
+          </div>
+        </div>
+
+        {/* Rotación y giros */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 flex items-center h-7 px-2 rounded-md border border-sidebar-border bg-background/50 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+            <RotateCw className="size-3 text-muted-foreground mr-1.5 shrink-0" />
+            <input
+              type="number"
+              value={rotInput}
+              onChange={(e) => setRotInput(e.target.value)}
+              onBlur={() => commitRotation(parseFloat(rotInput))}
+              onKeyDown={(e) => handlePositionKeyDown(e, "rot")}
+              className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <span className="text-[10px] font-mono text-muted-foreground/60 select-none">
+              °
+            </span>
+          </div>
+
+          <div className="flex items-center gap-0.5 bg-sidebar-accent/30 p-0.5 rounded-md border border-sidebar-border shrink-0">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={handleRotate90}
+                    className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent hover:text-foreground active:scale-95 transition-all"
+                  >
+                    <RotateCw className="size-3.5" />
+                  </button>
+                }
+              />
+              <TooltipContent side="top">Girar 90°</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={handleFlipHorizontal}
+                    className={cn(
+                      "flex size-6 items-center justify-center rounded transition-all",
+                      frame.flipHorizontal
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground active:scale-95"
+                    )}
+                  >
+                    <FlipHorizontal className="size-3.5" />
+                  </button>
+                }
+              />
+              <TooltipContent side="top">Girar horizontalmente</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={handleFlipVertical}
+                    className={cn(
+                      "flex size-6 items-center justify-center rounded transition-all",
+                      frame.flipVertical
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground active:scale-95"
+                    )}
+                  >
+                    <FlipVertical className="size-3.5" />
+                  </button>
+                }
+              />
+              <TooltipContent side="top">Girar verticalmente</TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
       </div>
 
-      {/* ── 2. Disposición (Figma Auto Layout & Dimensions) ── */}
+      {/* ── 2. Diseño automático (Figma Auto Layout) ── */}
       <div className="space-y-3 pt-1 border-t border-sidebar-border/60">
         <div className="flex items-center justify-between px-1">
           <span className="text-xs font-semibold text-foreground">
-            Disposición
+            Diseño automático
           </span>
           <div className="flex items-center gap-1">
             <Tooltip>
@@ -828,35 +1403,420 @@ export function DesignerFrameProperties({
                 render={
                   <button
                     type="button"
-                    onClick={handleHugContent}
-                    className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent hover:text-foreground active:scale-95 transition-all"
+                    onClick={() => {
+                      const nextFlow = frame.layoutFlow === "none" || !frame.layoutFlow ? "vertical" : "none";
+                      onChangeFrame({ ...frame, layoutFlow: nextFlow });
+                    }}
+                    className={cn(
+                      "flex size-6 items-center justify-center rounded transition-all",
+                      frame.layoutFlow && frame.layoutFlow !== "none"
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                    )}
                   >
-                    <HugContentIcon className="size-3.5" />
+                    <AutoLayoutHeaderIcon className="size-3.5" />
                   </button>
                 }
               />
-              <TooltipContent side="top">Ajustar al tamaño estándar</TooltipContent>
+              <TooltipContent side="top">
+                {frame.layoutFlow && frame.layoutFlow !== "none"
+                  ? "Diseño automático activado"
+                  : "Activar diseño automático"}
+              </TooltipContent>
             </Tooltip>
+          </div>
+        </div>
+
+        {/* Flujo (Scatter / Vertical / Horizontal / Wrap + Reverse) */}
+        <div className="space-y-1.5">
+          <span className="text-[11px] text-muted-foreground px-1">Flujo</span>
+          <div className="flex items-center gap-1">
+            <div className="flex-1 grid grid-cols-4 p-0.5 rounded-lg border border-sidebar-border bg-sidebar-accent/30">
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      onClick={() => handleFlowChange("none")}
+                      className={cn(
+                        "flex h-7 items-center justify-center rounded-md transition-all",
+                        flow === "none"
+                          ? "bg-background text-foreground shadow-xs border border-sidebar-border"
+                          : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
+                      )}
+                    >
+                      <FlowScatterIcon className="size-3.5" />
+                    </button>
+                  }
+                />
+                <TooltipContent side="top">Diseño libre (Stack)</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      onClick={() => handleFlowChange("vertical")}
+                      className={cn(
+                        "flex h-7 items-center justify-center rounded-md transition-all",
+                        flow === "vertical"
+                          ? "bg-background text-foreground shadow-xs border border-sidebar-border"
+                          : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
+                      )}
+                    >
+                      <FlowVerticalIcon className="size-3.5" />
+                    </button>
+                  }
+                />
+                <TooltipContent side="top">Vertical (Column)</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      onClick={() => handleFlowChange("horizontal")}
+                      className={cn(
+                        "flex h-7 items-center justify-center rounded-md transition-all",
+                        flow === "horizontal"
+                          ? "bg-background text-foreground shadow-xs border border-sidebar-border"
+                          : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
+                      )}
+                    >
+                      <FlowHorizontalIcon className="size-3.5" />
+                    </button>
+                  }
+                />
+                <TooltipContent side="top">Horizontal (Row)</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      onClick={() => handleFlowChange("wrap")}
+                      className={cn(
+                        "flex h-7 items-center justify-center rounded-md transition-all",
+                        flow === "wrap"
+                          ? "bg-background text-foreground shadow-xs border border-sidebar-border"
+                          : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
+                      )}
+                    >
+                      <FlowWrapIcon className="size-3.5" />
+                    </button>
+                  }
+                />
+                <TooltipContent side="top">Envolvente (Wrap)</TooltipContent>
+              </Tooltip>
+            </div>
 
             <Tooltip>
               <TooltipTrigger
                 render={
                   <button
                     type="button"
-                    onClick={handleToggleOrientation}
-                    className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent hover:text-foreground active:scale-95 transition-all"
+                    onClick={() => onChangeFrame({ ...frame, reverseOrder: !frame.reverseOrder })}
+                    className={cn(
+                      "flex size-7 items-center justify-center rounded-lg border transition-all shrink-0 active:scale-95",
+                      frame.reverseOrder
+                        ? "bg-primary/10 border-primary/40 text-primary shadow-xs"
+                        : "border-sidebar-border bg-sidebar-accent/30 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                    )}
                   >
-                    <OrientationIcon className="size-3.5" />
+                    <ReverseFlowIcon className="size-3.5" />
                   </button>
                 }
               />
-              <TooltipContent side="top">Cambiar orientación</TooltipContent>
+              <TooltipContent side="top">Invertir orden de los elementos</TooltipContent>
             </Tooltip>
           </div>
         </div>
 
-        {/* Estructura Raíz de Pantalla (Scaffold / Scrollable / Stack) */}
+        {/* Dimensiones (W / H con sizing mode: Fixed / Hug / Fill) */}
         <div className="space-y-1.5">
+          <span className="text-[11px] text-muted-foreground px-1">Dimensiones</span>
+          <div className="flex items-center gap-1.5">
+            {/* W Input */}
+            <div className="flex-1 flex items-center h-7 px-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+              <span className="text-[10px] font-mono font-medium text-muted-foreground mr-1.5 select-none">
+                W
+              </span>
+              <input
+                type="number"
+                disabled={frame.widthMode === "hug" || frame.widthMode === "fill"}
+                value={frame.widthMode === "hug" ? "" : frame.widthMode === "fill" ? "" : wInput}
+                placeholder={frame.widthMode === "hug" ? "Hug" : frame.widthMode === "fill" ? "Fill" : ""}
+                onChange={(e) => setWInput(e.target.value)}
+                onBlur={() => commitWidth(parseFloat(wInput))}
+                onKeyDown={(e) => handleDimensionKeyDown(e, "w")}
+                className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-60"
+              />
+              <select
+                value={frame.widthMode || "fixed"}
+                onChange={(e) => onChangeFrame({ ...frame, widthMode: e.target.value as any })}
+                className="bg-transparent text-[9px] text-muted-foreground cursor-pointer outline-none uppercase font-mono ml-0.5"
+              >
+                <option value="fixed" className="bg-popover text-popover-foreground">Fix</option>
+                <option value="hug" className="bg-popover text-popover-foreground">Hug</option>
+                <option value="fill" className="bg-popover text-popover-foreground">Fill</option>
+              </select>
+            </div>
+
+            {/* H Input */}
+            <div className="flex-1 flex items-center h-7 px-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+              <span className="text-[10px] font-mono font-medium text-muted-foreground mr-1.5 select-none">
+                H
+              </span>
+              <input
+                type="number"
+                disabled={frame.heightMode === "hug" || frame.heightMode === "fill"}
+                value={frame.heightMode === "hug" ? "" : frame.heightMode === "fill" ? "" : hInput}
+                placeholder={frame.heightMode === "hug" ? "Hug" : frame.heightMode === "fill" ? "Fill" : ""}
+                onChange={(e) => setHInput(e.target.value)}
+                onBlur={() => commitHeight(parseFloat(hInput))}
+                onKeyDown={(e) => handleDimensionKeyDown(e, "h")}
+                className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-60"
+              />
+              <select
+                value={frame.heightMode || "fixed"}
+                onChange={(e) => onChangeFrame({ ...frame, heightMode: e.target.value as any })}
+                className="bg-transparent text-[9px] text-muted-foreground cursor-pointer outline-none uppercase font-mono ml-0.5"
+              >
+                <option value="fixed" className="bg-popover text-popover-foreground">Fix</option>
+                <option value="hug" className="bg-popover text-popover-foreground">Hug</option>
+                <option value="fill" className="bg-popover text-popover-foreground">Fill</option>
+              </select>
+            </div>
+
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={toggleConstrainProportions}
+                    className={cn(
+                      "flex size-7 items-center justify-center rounded-lg border transition-all shrink-0 active:scale-95",
+                      frame.constrainProportions
+                        ? "bg-primary/10 border-primary/40 text-primary shadow-xs"
+                        : "border-sidebar-border bg-sidebar-accent/30 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                    )}
+                  >
+                    <ConstrainProportionsIcon className="size-3.5" />
+                  </button>
+                }
+              />
+              <TooltipContent side="top">
+                {frame.constrainProportions ? "Desbloquear proporciones" : "Bloquear proporciones"}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </div>
+
+        {/* Alineación (Columna Izq) y Espacio (Columna Der) */}
+        <div className="grid grid-cols-2 gap-2 pt-0.5">
+          {/* Columna Izquierda: Alineación */}
+          <div className="space-y-1">
+            <span className="text-[11px] text-muted-foreground px-1">Alineación</span>
+            <DesignerAlignmentMatrix
+              value={frame.alignment || "topLeft"}
+              onChange={(align) => onChangeFrame({ ...frame, alignment: align })}
+            />
+          </div>
+
+          {/* Columna Derecha: Espacio */}
+          <div className="space-y-1">
+            <span className="text-[11px] text-muted-foreground px-1">Espacio</span>
+            <div className="flex items-center gap-1">
+              <div className="flex-1 flex items-center h-[68px] px-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all flex-col justify-center">
+                <div className="flex items-center w-full">
+                  <GapFigmaIcon className="size-3.5 text-muted-foreground mr-1.5 shrink-0" />
+                  <input
+                    type="text"
+                    disabled={frame.spacingMode === "spaceBetween"}
+                    value={frame.spacingMode === "spaceBetween" ? "Auto" : spacingInput}
+                    onChange={(e) => setSpacingInput(e.target.value)}
+                    onBlur={() => commitSpacing(parseFloat(spacingInput))}
+                    onKeyDown={handleSpacingKeyDown}
+                    className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-75"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = frame.spacingMode === "spaceBetween" ? "packed" : "spaceBetween";
+                      onChangeFrame({ ...frame, spacingMode: next });
+                    }}
+                    title={frame.spacingMode === "spaceBetween" ? "Cambiar a Empaquetado" : "Cambiar a Separar (Auto)"}
+                    className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                  >
+                    <ChevronDown className="size-3" />
+                  </button>
+                </div>
+                <span className="text-[9px] text-muted-foreground/60 w-full text-left font-mono mt-0.5">
+                  {frame.spacingMode === "spaceBetween" ? "Auto (Space Between)" : "Packed (px)"}
+                </span>
+              </div>
+
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const next = frame.spacingMode === "spaceBetween" ? "packed" : "spaceBetween";
+                        onChangeFrame({ ...frame, spacingMode: next });
+                      }}
+                      className={cn(
+                        "flex size-8 items-center justify-center rounded-lg border transition-all shrink-0 active:scale-95",
+                        frame.spacingMode === "spaceBetween"
+                          ? "bg-primary/10 border-primary/40 text-primary shadow-xs"
+                          : "border-sidebar-border bg-sidebar-accent/30 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+                      )}
+                    >
+                      <SlidersHorizontal className="size-3.5" />
+                    </button>
+                  }
+                />
+                <TooltipContent side="top">
+                  {frame.spacingMode === "spaceBetween"
+                    ? "Modo Espacio: Separar equitativamente (Space Between)"
+                    : "Modo Espacio: Empaquetado (Packed)"}
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+        </div>
+
+        {/* Margen interior (Padding) */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[11px] text-muted-foreground">Margen interior</span>
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={() => setPaddingMode(paddingMode === "symmetric" ? "individual" : "symmetric")}
+                    className={cn(
+                      "flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent hover:text-foreground active:scale-95 transition-all",
+                      paddingMode === "individual" && "text-primary bg-primary/10"
+                    )}
+                  >
+                    <PaddingIndividualIcon className="size-3.5" />
+                  </button>
+                }
+              />
+              <TooltipContent side="top">
+                {paddingMode === "symmetric"
+                  ? "Configurar márgenes individuales (L / T / R / B)"
+                  : "Configurar márgenes simétricos (Horizontal / Vertical)"}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+          {paddingMode === "symmetric" ? (
+            <div className="grid grid-cols-2 gap-1.5">
+              <div className="flex items-center h-7 px-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+                <PaddingHorizontalIcon className="size-3 text-muted-foreground mr-1.5 shrink-0" />
+                <input
+                  type="number"
+                  value={padHInput}
+                  placeholder="0"
+                  onChange={(e) => {
+                    setPadHInput(e.target.value);
+                    const val = parseInt(e.target.value) || 0;
+                    commitPaddingSymmetric(val, parseInt(padVInput) || 0);
+                  }}
+                  className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+
+              <div className="flex items-center h-7 px-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+                <PaddingVerticalIcon className="size-3 text-muted-foreground mr-1.5 shrink-0" />
+                <input
+                  type="number"
+                  value={padVInput}
+                  placeholder="0"
+                  onChange={(e) => {
+                    setPadVInput(e.target.value);
+                    const val = parseInt(e.target.value) || 0;
+                    commitPaddingSymmetric(parseInt(padHInput) || 0, val);
+                  }}
+                  className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 gap-1 text-[10px] font-mono">
+              <input
+                type="number"
+                placeholder="L"
+                title="Padding Izquierdo"
+                value={padLInput}
+                onChange={(e) => {
+                  setPadLInput(e.target.value);
+                  const l = parseInt(e.target.value) || 0;
+                  commitPaddingIndividual(parseInt(padTInput) || 0, parseInt(padRInput) || 0, parseInt(padBInput) || 0, l);
+                }}
+                className="px-1.5 py-1 rounded-md bg-sidebar-accent/30 border border-sidebar-border text-center outline-none text-foreground focus:border-primary"
+              />
+              <input
+                type="number"
+                placeholder="T"
+                title="Padding Superior"
+                value={padTInput}
+                onChange={(e) => {
+                  setPadTInput(e.target.value);
+                  const t = parseInt(e.target.value) || 0;
+                  commitPaddingIndividual(t, parseInt(padRInput) || 0, parseInt(padBInput) || 0, parseInt(padLInput) || 0);
+                }}
+                className="px-1.5 py-1 rounded-md bg-sidebar-accent/30 border border-sidebar-border text-center outline-none text-foreground focus:border-primary"
+              />
+              <input
+                type="number"
+                placeholder="R"
+                title="Padding Derecho"
+                value={padRInput}
+                onChange={(e) => {
+                  setPadRInput(e.target.value);
+                  const r = parseInt(e.target.value) || 0;
+                  commitPaddingIndividual(parseInt(padTInput) || 0, r, parseInt(padBInput) || 0, parseInt(padLInput) || 0);
+                }}
+                className="px-1.5 py-1 rounded-md bg-sidebar-accent/30 border border-sidebar-border text-center outline-none text-foreground focus:border-primary"
+              />
+              <input
+                type="number"
+                placeholder="B"
+                title="Padding Inferior"
+                value={padBInput}
+                onChange={(e) => {
+                  setPadBInput(e.target.value);
+                  const b = parseInt(e.target.value) || 0;
+                  commitPaddingIndividual(parseInt(padTInput) || 0, parseInt(padRInput) || 0, b, parseInt(padLInput) || 0);
+                }}
+                className="px-1.5 py-1 rounded-md bg-sidebar-accent/30 border border-sidebar-border text-center outline-none text-foreground focus:border-primary"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Recortar contenido (Clip content) */}
+        <div className="flex items-center gap-2 px-1 pt-1">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={frame.clipContent ?? false}
+              onChange={(e) => onChangeFrame({ ...frame, clipContent: e.target.checked })}
+              className="size-3.5 rounded border border-sidebar-border text-primary focus:ring-primary/20 accent-primary cursor-pointer"
+            />
+            <span className="text-xs text-foreground">Recortar contenido</span>
+          </label>
+        </div>
+
+        {/* Estructura Raíz de Pantalla (Scaffold / Scrollable / Stack) */}
+        <div className="space-y-1.5 pt-2 border-t border-sidebar-border/40">
           <div className="flex items-center justify-between px-1">
             <span className="text-[11px] text-muted-foreground">Estructura Flutter</span>
             <span className="text-[9px] font-mono font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">
@@ -942,287 +1902,148 @@ export function DesignerFrameProperties({
             </Tooltip>
           </div>
         </div>
-
-        {/* Flujo Subsection */}
-        <div className="space-y-1.5">
-          <span className="text-[11px] text-muted-foreground px-1">Flujo</span>
-          <div className="grid grid-cols-4 p-0.5 rounded-lg border border-sidebar-border bg-sidebar-accent/30">
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    type="button"
-                    onClick={() => handleFlowChange("none")}
-                    className={cn(
-                      "flex h-7 items-center justify-center rounded-md transition-all",
-                      flow === "none"
-                        ? "bg-background text-foreground shadow-xs border border-sidebar-border"
-                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
-                    )}
-                  >
-                    <FlowNoneIcon className="size-4" />
-                  </button>
-                }
-              />
-              <TooltipContent side="top">Diseño libre (Stack)</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    type="button"
-                    onClick={() => handleFlowChange("vertical")}
-                    className={cn(
-                      "flex h-7 items-center justify-center rounded-md transition-all",
-                      flow === "vertical"
-                        ? "bg-background text-foreground shadow-xs border border-sidebar-border"
-                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
-                    )}
-                  >
-                    <FlowVerticalIcon className="size-4" />
-                  </button>
-                }
-              />
-              <TooltipContent side="top">Flujo vertical (Column)</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    type="button"
-                    onClick={() => handleFlowChange("horizontal")}
-                    className={cn(
-                      "flex h-7 items-center justify-center rounded-md transition-all",
-                      flow === "horizontal"
-                        ? "bg-background text-foreground shadow-xs border border-sidebar-border"
-                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
-                    )}
-                  >
-                    <FlowHorizontalIcon className="size-4" />
-                  </button>
-                }
-              />
-              <TooltipContent side="top">Flujo horizontal (Row)</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    type="button"
-                    onClick={() => handleFlowChange("wrap")}
-                    className={cn(
-                      "flex h-7 items-center justify-center rounded-md transition-all",
-                      flow === "wrap"
-                        ? "bg-background text-foreground shadow-xs border border-sidebar-border"
-                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
-                    )}
-                  >
-                    <FlowWrapIcon className="size-4" />
-                  </button>
-                }
-              />
-              <TooltipContent side="top">Flujo envolvente (Wrap)</TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-
-        {/* Dimensiones Subsection */}
-        <div className="space-y-1.5">
-          <span className="text-[11px] text-muted-foreground px-1">Dimensiones</span>
-          <div className="flex items-center gap-2">
-            <div className="flex-1 flex items-center h-7 px-2.5 rounded-lg border border-sidebar-border bg-sidebar-accent/30 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
-              <span className="text-[11px] font-medium text-muted-foreground mr-2 select-none">
-                W
-              </span>
-              <input
-                type="number"
-                value={wInput}
-                onChange={(e) => setWInput(e.target.value)}
-                onBlur={() => commitWidth(parseFloat(wInput))}
-                onKeyDown={(e) => handleDimensionKeyDown(e, "w")}
-                className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-            </div>
-
-            <div className="flex-1 flex items-center h-7 px-2.5 rounded-lg border border-sidebar-border bg-sidebar-accent/30 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
-              <span className="text-[11px] font-medium text-muted-foreground mr-2 select-none">
-                H
-              </span>
-              <input
-                type="number"
-                value={hInput}
-                onChange={(e) => setHInput(e.target.value)}
-                onBlur={() => commitHeight(parseFloat(hInput))}
-                onKeyDown={(e) => handleDimensionKeyDown(e, "h")}
-                className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-            </div>
-
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    type="button"
-                    onClick={toggleConstrainProportions}
-                    className={cn(
-                      "flex size-7 items-center justify-center rounded-lg border transition-all shrink-0 active:scale-95",
-                      frame.constrainProportions
-                        ? "bg-primary/10 border-primary/40 text-primary shadow-xs"
-                        : "border-sidebar-border bg-sidebar-accent/30 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-                    )}
-                  >
-                    <ConstrainProportionsIcon className="size-3.5" />
-                  </button>
-                }
-              />
-              <TooltipContent side="top">
-                {frame.constrainProportions ? "Desbloquear proporciones" : "Bloquear proporciones"}
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-
-        {/* Espaciamiento Subsection */}
-        <div className="space-y-1.5">
-          <span className="text-[11px] text-muted-foreground px-1">Espaciamiento</span>
-          <div className="w-[calc(50%-4px)] flex items-center h-7 px-2.5 rounded-lg border border-sidebar-border bg-sidebar-accent/30 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
-            <SpacingIcon className="size-3.5 text-muted-foreground mr-1.5 shrink-0" />
-            <input
-              type="number"
-              value={spacingInput}
-              onChange={(e) => setSpacingInput(e.target.value)}
-              onBlur={() => commitSpacing(parseFloat(spacingInput))}
-              onKeyDown={handleSpacingKeyDown}
-              className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-          </div>
-        </div>
       </div>
 
-      {/* ── 3. Position Inputs (X, Y) ── */}
-      <div className="space-y-1.5 pt-1 border-t border-sidebar-border/60">
-        <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground px-1">
-          Posición
-        </span>
+      {/* ── 3. Apariencia (Opacidad, Radio de esquina, Selector de tema) ── */}
+      <div className="space-y-3 pt-1 border-t border-sidebar-border/60">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-semibold text-foreground">
+            Apariencia
+          </span>
+        </div>
+
+        {/* Opacidad y Radio de esquina */}
         <div className="grid grid-cols-2 gap-2">
-          <div className="flex items-center h-7 px-2 rounded-md border border-sidebar-border bg-background/50 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
-            <span className="text-[10px] font-mono font-medium text-muted-foreground mr-1.5 select-none">
-              X
-            </span>
-            <input
-              type="number"
-              value={xInput}
-              onChange={(e) => setXInput(e.target.value)}
-              onBlur={() => commitX(parseFloat(xInput))}
-              onKeyDown={(e) => handlePositionKeyDown(e, "x")}
-              className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-            <span className="text-[10px] font-mono text-muted-foreground/60 select-none">
-              px
-            </span>
+          {/* Opacidad */}
+          <div className="space-y-1">
+            <span className="text-[11px] text-muted-foreground px-1">Opacidad</span>
+            <div className="flex items-center h-7 px-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+              <OpacityIcon className="size-3.5 text-muted-foreground mr-1.5 shrink-0" />
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={opacityInput}
+                onChange={(e) => setOpacityInput(e.target.value)}
+                onBlur={() => commitOpacity(parseFloat(opacityInput))}
+                className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <span className="text-[10px] font-mono text-muted-foreground/60 select-none">
+                %
+              </span>
+            </div>
           </div>
 
-          <div className="flex items-center h-7 px-2 rounded-md border border-sidebar-border bg-background/50 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
-            <span className="text-[10px] font-mono font-medium text-muted-foreground mr-1.5 select-none">
-              Y
-            </span>
-            <input
-              type="number"
-              value={yInput}
-              onChange={(e) => setYInput(e.target.value)}
-              onBlur={() => commitY(parseFloat(yInput))}
-              onKeyDown={(e) => handlePositionKeyDown(e, "y")}
-              className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-            <span className="text-[10px] font-mono text-muted-foreground/60 select-none">
-              px
-            </span>
+          {/* Radio de esquina (Aplica únicamente al margen) */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[11px] text-muted-foreground">Radio de esquina</span>
+            </div>
+            <div className="flex items-center h-7 px-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+              <CornerRadiusIcon className="size-3.5 text-muted-foreground mr-1.5 shrink-0" />
+              <input
+                type="number"
+                min="0"
+                placeholder="0"
+                title="Aplica únicamente al margen exterior del Frame"
+                value={cornerRadiusInput}
+                onChange={(e) => setCornerRadiusInput(e.target.value)}
+                onBlur={() => commitCornerRadius(parseFloat(cornerRadiusInput))}
+                className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <span className="text-[10px] font-mono text-muted-foreground/60 select-none">
+                px
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Selector de tema (Automático, Claro, Oscuro) */}
+        <div className="space-y-1.5">
+          <span className="text-[11px] text-muted-foreground px-1">Selector de tema</span>
+          <div className="grid grid-cols-3 p-0.5 rounded-lg border border-sidebar-border bg-sidebar-accent/30 gap-0.5">
+            {/* 1. Automático */}
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={() => onChangeFrame({ ...frame, themeMode: "system" })}
+                    className={cn(
+                      "flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-md transition-all text-xs",
+                      (frame.themeMode || "system") === "system"
+                        ? "bg-background text-foreground shadow-xs border border-sidebar-border font-medium"
+                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
+                    )}
+                  >
+                    <Monitor className="size-3.5" />
+                    <span className="text-[10px] leading-none">Auto</span>
+                  </button>
+                }
+              />
+              <TooltipContent side="top">Tema según el sistema operativo o IDE</TooltipContent>
+            </Tooltip>
+
+            {/* 2. Claro */}
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChangeFrame({
+                        ...frame,
+                        themeMode: "light",
+                        fill: frame.fill === "#121212" ? "#FFFFFF" : frame.fill,
+                      });
+                    }}
+                    className={cn(
+                      "flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-md transition-all text-xs",
+                      frame.themeMode === "light"
+                        ? "bg-background text-foreground shadow-xs border border-sidebar-border font-medium"
+                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
+                    )}
+                  >
+                    <Sun className="size-3.5" />
+                    <span className="text-[10px] leading-none">Claro</span>
+                  </button>
+                }
+              />
+              <TooltipContent side="top">Tema claro (Light Theme)</TooltipContent>
+            </Tooltip>
+
+            {/* 3. Oscuro */}
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChangeFrame({
+                        ...frame,
+                        themeMode: "dark",
+                        fill: !frame.fill || frame.fill === "#FFFFFF" ? "#121212" : frame.fill,
+                      });
+                    }}
+                    className={cn(
+                      "flex items-center justify-center gap-1.5 py-1.5 px-1 rounded-md transition-all text-xs",
+                      frame.themeMode === "dark"
+                        ? "bg-background text-foreground shadow-xs border border-sidebar-border font-medium"
+                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-accent/50"
+                    )}
+                  >
+                    <Moon className="size-3.5" />
+                    <span className="text-[10px] leading-none">Oscuro</span>
+                  </button>
+                }
+              />
+              <TooltipContent side="top">Tema oscuro (Dark Theme)</TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </div>
 
-      {/* ── 4. Rotation Input & Quick Actions ── */}
-      <div className="space-y-1.5 pt-1 border-t border-sidebar-border/60">
-        <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground px-1">
-          Rotación
-        </span>
-        <div className="flex items-center gap-2">
-          <div className="flex-1 flex items-center h-7 px-2 rounded-md border border-sidebar-border bg-background/50 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
-            <RotateCw className="size-3 text-muted-foreground mr-1.5 shrink-0" />
-            <input
-              type="number"
-              value={rotInput}
-              onChange={(e) => setRotInput(e.target.value)}
-              onBlur={() => commitRotation(parseFloat(rotInput))}
-              onKeyDown={(e) => handlePositionKeyDown(e, "rot")}
-              className="w-full bg-transparent text-xs font-mono text-foreground outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-            <span className="text-[10px] font-mono text-muted-foreground/60 select-none">
-              °
-            </span>
-          </div>
 
-          <div className="flex items-center gap-0.5 bg-sidebar-accent/30 p-0.5 rounded-md border border-sidebar-border shrink-0">
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    type="button"
-                    onClick={handleRotate90}
-                    className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent hover:text-foreground active:scale-95 transition-all"
-                  >
-                    <RotateCw className="size-3.5" />
-                  </button>
-                }
-              />
-              <TooltipContent side="top">Girar 90°</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    type="button"
-                    onClick={handleFlipHorizontal}
-                    className={cn(
-                      "flex size-6 items-center justify-center rounded transition-all",
-                      frame.flipHorizontal
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground active:scale-95"
-                    )}
-                  >
-                    <FlipHorizontal className="size-3.5" />
-                  </button>
-                }
-              />
-              <TooltipContent side="top">Girar horizontalmente</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    type="button"
-                    onClick={handleFlipVertical}
-                    className={cn(
-                      "flex size-6 items-center justify-center rounded transition-all",
-                      frame.flipVertical
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground active:scale-95"
-                    )}
-                  >
-                    <FlipVertical className="size-3.5" />
-                  </button>
-                }
-              />
-              <TooltipContent side="top">Girar verticalmente</TooltipContent>
-            </Tooltip>
-          </div>
-        </div>
-      </div>
 
       {/* ── 5. Relleno (Fill) ── */}
       <div className="space-y-2 pt-1 border-t border-sidebar-border/60">
@@ -1617,108 +2438,170 @@ export function DesignerFrameProperties({
       <div className="space-y-2 pt-1 border-t border-sidebar-border/60">
         <div className="flex items-center justify-between px-1">
           <span className="text-xs font-semibold text-foreground">Colores</span>
+          {frameColors.length > 0 && (
+            <div className="flex items-center gap-1.5">
+              {frameColors.slice(0, 3).map((item, idx) => (
+                <div
+                  key={idx}
+                  className="size-3.5 rounded-xs border border-border/80 shadow-2xs"
+                  style={{ backgroundColor: item.color }}
+                />
+              ))}
+              {frameColors.length > 3 && (
+                <span className="text-[10px] font-mono text-muted-foreground select-none">
+                  +{frameColors.length - 3}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="space-y-1.5">
-          {/* Color 1: Theme variable token primary (Light) */}
-          <div
-            onClick={() => handleSelectToken("primary (Light)", "#6750A4")}
-            className="flex items-center h-8 px-2.5 rounded-lg border border-sidebar-border bg-sidebar-accent/30 hover:border-primary/40 cursor-pointer transition-all group"
-          >
-            <div className="size-4 rounded-sm border border-border/80 shadow-2xs bg-[#6750A4] mr-2.5 shrink-0" />
-            <span className="text-xs font-medium text-foreground truncate group-hover:text-primary transition-colors">
-              primary (Light)
-            </span>
-          </div>
-
-          {/* Color 2: Dark tone 021014 */}
-          <div
-            onClick={() => {
-              onChangeFrame({
-                ...frame,
-                hasFill: true,
-                fill: "#021014",
-                fillToken: undefined,
-              });
-              setFillHexInput("021014");
-            }}
-            className="flex items-center justify-between h-8 px-2.5 rounded-lg border border-sidebar-border bg-sidebar-accent/30 hover:border-primary/40 cursor-pointer transition-all"
-          >
-            <div className="flex items-center gap-2.5">
-              <label
-                onClick={(e) => e.stopPropagation()}
-                className="relative flex size-4 rounded-sm border border-border/80 shadow-2xs cursor-pointer overflow-hidden shrink-0"
+        {frameColors.length > 0 ? (
+          <div className="space-y-1.5">
+            {frameColors.map((item) => (
+              <div
+                key={item.color}
+                className="flex items-center justify-between h-8 px-2.5 rounded-lg border border-sidebar-border bg-sidebar-accent/30 hover:border-primary/40 transition-all group"
               >
-                <div className="size-full pointer-events-none bg-[#021014]" />
-                <input
-                  type="color"
-                  value="#021014"
-                  onChange={(e) => {
-                    const hex = e.target.value.toUpperCase();
-                    onChangeFrame({
-                      ...frame,
-                      hasFill: true,
-                      fill: hex,
-                      fillToken: undefined,
-                    });
-                    setFillHexInput(hex.replace("#", ""));
-                  }}
-                  className="absolute inset-0 size-full opacity-0 cursor-pointer p-0 m-0 border-0 outline-none"
-                />
-              </label>
-              <span className="text-xs font-mono uppercase text-foreground">
-                021014
-              </span>
-            </div>
-            <span className="text-xs font-mono text-muted-foreground">
-              100 %
-            </span>
-          </div>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <label className="relative flex size-4 rounded-sm border border-border/80 shadow-2xs cursor-pointer overflow-hidden shrink-0">
+                    <div
+                      className="size-full pointer-events-none"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <input
+                      type="color"
+                      value={item.color.startsWith("#") ? item.color.slice(0, 7) : "#000000"}
+                      onChange={(e) => {
+                        const newHex = e.target.value.toUpperCase();
+                        handleReplaceColor(item.color, newHex);
+                      }}
+                      className="absolute inset-0 size-full opacity-0 cursor-pointer p-0 m-0 border-0 outline-none"
+                    />
+                  </label>
+                  <span className="text-xs font-mono uppercase text-foreground truncate select-all">
+                    {item.color.replace("#", "")}
+                  </span>
+                </div>
 
-          {/* Color 3: White FFFFFF */}
-          <div
-            onClick={() => {
-              onChangeFrame({
-                ...frame,
-                hasFill: true,
-                fill: "#FFFFFF",
-                fillToken: undefined,
-              });
-              setFillHexInput("FFFFFF");
-            }}
-            className="flex items-center justify-between h-8 px-2.5 rounded-lg border border-sidebar-border bg-sidebar-accent/30 hover:border-primary/40 cursor-pointer transition-all"
-          >
-            <div className="flex items-center gap-2.5">
-              <label
-                onClick={(e) => e.stopPropagation()}
-                className="relative flex size-4 rounded-sm border border-border/80 shadow-2xs cursor-pointer overflow-hidden shrink-0"
-              >
-                <div className="size-full pointer-events-none bg-[#FFFFFF]" />
-                <input
-                  type="color"
-                  value="#ffffff"
-                  onChange={(e) => {
-                    const hex = e.target.value.toUpperCase();
-                    onChangeFrame({
-                      ...frame,
-                      hasFill: true,
-                      fill: hex,
-                      fillToken: undefined,
-                    });
-                    setFillHexInput(hex.replace("#", ""));
-                  }}
-                  className="absolute inset-0 size-full opacity-0 cursor-pointer p-0 m-0 border-0 outline-none"
-                />
-              </label>
-              <span className="text-xs font-mono uppercase text-foreground">
-                FFFFFF
-              </span>
-            </div>
-            <span className="text-xs font-mono text-muted-foreground">
-              100 %
-            </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[10px] font-mono text-muted-foreground">
+                    {item.count} {item.count === 1 ? "elem" : "elems"}
+                  </span>
+                  <span className="text-xs font-mono text-muted-foreground select-none">
+                    100 %
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-[11px] text-muted-foreground/60 px-1 italic">
+            Sin colores en la pantalla
+          </div>
+        )}
+      </div>
+
+      {/* ── 9. Guía de disposición (Layout Grid) ── */}
+      <div className="space-y-2 pt-1 border-t border-sidebar-border/60">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-semibold text-foreground">Guía de disposición</span>
+          <div className="flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={handleAddLayoutGrid}
+                    className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-sidebar-accent hover:text-foreground active:scale-95 transition-all"
+                  >
+                    <Plus className="size-3.5" />
+                  </button>
+                }
+              />
+              <TooltipContent side="top">Añadir guía de disposición</TooltipContent>
+            </Tooltip>
           </div>
         </div>
+
+        {frame.layoutGrid ? (
+          <div className="flex items-center gap-1.5">
+            <div className="flex-1 flex items-center justify-between h-8 px-2 rounded-lg border border-sidebar-border bg-sidebar-accent/30 transition-all min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <LayoutGrid className="size-3.5 text-muted-foreground shrink-0" />
+                <select
+                  value={frame.layoutGrid.type}
+                  onChange={(e) => {
+                    const nextType = e.target.value as "columns" | "grid";
+                    onChangeFrame({
+                      ...frame,
+                      layoutGrid: {
+                        ...frame.layoutGrid!,
+                        type: nextType,
+                        count: nextType === "columns" ? 4 : undefined,
+                        size: nextType === "grid" ? 8 : undefined,
+                      },
+                    });
+                  }}
+                  className="bg-transparent text-xs text-foreground cursor-pointer outline-none truncate"
+                >
+                  <option value="columns" className="bg-popover text-popover-foreground">
+                    Columnas (4, 16px)
+                  </option>
+                  <option value="grid" className="bg-popover text-popover-foreground">
+                    Cuadrícula (8dp)
+                  </option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0 pl-1">
+                <span className="text-[10px] font-mono text-muted-foreground">
+                  {frame.layoutGrid.type === "columns" ? "4 col" : "8 dp"}
+                </span>
+              </div>
+            </div>
+
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={handleToggleLayoutGridVisible}
+                    className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground active:scale-95 transition-all shrink-0"
+                  >
+                    {frame.layoutGrid.visible ? (
+                      <Eye className="size-3.5" />
+                    ) : (
+                      <EyeOff className="size-3.5 text-muted-foreground/60" />
+                    )}
+                  </button>
+                }
+              />
+              <TooltipContent side="top">
+                {frame.layoutGrid.visible ? "Ocultar guía" : "Mostrar guía"}
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={handleRemoveLayoutGrid}
+                    className="flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-foreground active:scale-95 transition-all shrink-0"
+                  >
+                    <Minus className="size-3.5" />
+                  </button>
+                }
+              />
+              <TooltipContent side="top">Eliminar guía</TooltipContent>
+            </Tooltip>
+          </div>
+        ) : (
+          <div className="text-[11px] text-muted-foreground/60 px-1 italic">
+            Sin guías de disposición
+          </div>
+        )}
       </div>
     </div>
   );

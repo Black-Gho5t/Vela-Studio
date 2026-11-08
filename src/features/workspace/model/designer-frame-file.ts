@@ -1,4 +1,11 @@
 import { useWorkspaceStore } from "./workspace.store";
+import type { CanvasDeviceFrame } from "../ui/designer-canvas";
+import {
+  generateFullFlutterScreen,
+  generateFrameBodyCode,
+} from "./flutter-code-generator";
+
+const syncTimeouts = new Map<string, any>();
 
 /**
  * Generates a clean snake_case filename for a Flutter screen based on frame name.
@@ -184,34 +191,7 @@ class ${className} extends StatelessWidget {
         elevation: 0,
       ),
       body: const SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.smartphone,
-                size: 64,
-                color: Colors.blue,
-              ),
-              SizedBox(height: 16),
-              Text(
-                '${screenTitle}',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Diseña tus widgets aquí',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: SizedBox.shrink(),
       ),
     );
   }
@@ -372,3 +352,97 @@ export async function createFlutterFileForFrame(
     content,
   };
 }
+
+/**
+ * Synchronizes the visual CanvasDeviceFrame to its corresponding .dart file on disk,
+ * surgically updating the Widget build method body and triggering Flutter Hot Reload.
+ */
+export async function syncFrameToFile(frame: CanvasDeviceFrame): Promise<void> {
+  const { projectPath, tabs, updateTabContent, setFileTree } = useWorkspaceStore.getState();
+  const fileName = frame.fileName || getFlutterFileName(frame.name);
+  const className = getFlutterClassName(fileName);
+  const targetPath = frame.filePath || `lib/screens/${fileName}`;
+  const resolvedPath = resolveAbsoluteFilePath(targetPath, projectPath);
+
+  let existingContent = "";
+  const openTab = tabs.find(
+    (t) => t.path === resolvedPath || t.id === resolvedPath || t.name === fileName
+  );
+
+  if (openTab?.content) {
+    existingContent = openTab.content;
+  } else {
+    try {
+      const { workspaceApi } = await import("../api/workspace.api");
+      existingContent = await workspaceApi.readFile(resolvedPath);
+    } catch {
+      // File might not exist yet on disk
+    }
+  }
+
+  let finalContent = "";
+  if (existingContent && existingContent.includes("Widget build(")) {
+    const bodyContent = generateFrameBodyCode(frame);
+    // Surgically replace body: ... in the Scaffold
+    const bodyRegex = /body:\s*([\s\S]*?)(,\s*(\n\s*)?\);|\);\s*\n)/;
+    if (bodyRegex.test(existingContent)) {
+      finalContent = existingContent.replace(bodyRegex, `body: ${bodyContent}$2`);
+    } else {
+      finalContent = generateFullFlutterScreen(className, frame.name, frame);
+    }
+  } else {
+    finalContent = generateFullFlutterScreen(className, frame.name, frame);
+  }
+
+  // 1. Save to disk via Tauri IPC
+  try {
+    const { workspaceApi } = await import("../api/workspace.api");
+    await workspaceApi.saveFile(resolvedPath, finalContent);
+
+    if (projectPath) {
+      const tree = await workspaceApi.getDirectoryTree(projectPath);
+      setFileTree(tree);
+    }
+  } catch (err) {
+    console.warn("Could not save Flutter file for frame to disk:", err);
+  }
+
+  // 2. Update tab content in store
+  if (openTab) {
+    updateTabContent(openTab.id, finalContent);
+  }
+
+  // 3. Trigger Flutter Hot Reload
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("send_flutter_daemon_message", {
+      message: JSON.stringify({
+        id: Date.now(),
+        method: "app.restart",
+        params: { fullRestart: false },
+      }),
+    });
+  } catch {
+    // Daemon not active or running outside desktop app
+  }
+}
+
+/**
+ * Debounced version of syncFrameToFile to prevent disk thrashing and rapid daemon restarts.
+ */
+export function debouncedSyncFrameToFile(frame: CanvasDeviceFrame, delay = 250): void {
+  const existingTimeout = syncTimeouts.get(frame.id);
+  if (existingTimeout) {
+    clearTimeout(existingTimeout);
+  }
+
+  const timeout = setTimeout(() => {
+    syncTimeouts.delete(frame.id);
+    syncFrameToFile(frame).catch((err) => {
+      console.error("Failed to sync frame to Flutter file:", err);
+    });
+  }, delay);
+
+  syncTimeouts.set(frame.id, timeout);
+}
+

@@ -41,11 +41,28 @@ export function WorkspaceTerminal({ projectPath }: { projectPath?: string }) {
   const initialized = React.useRef(false);
   const { theme } = useTheme();
 
-  const isDark =
-    theme === "dark" ||
-    (theme === "system" &&
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const [isDark, setIsDark] = React.useState(() => {
+    if (typeof window === "undefined") return true;
+    if (theme === "dark") return true;
+    if (theme === "light") return false;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
+
+  React.useEffect(() => {
+    if (theme === "dark") {
+      setIsDark(true);
+      return;
+    }
+    if (theme === "light") {
+      setIsDark(false);
+      return;
+    }
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    setIsDark(mediaQuery.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDark(e.matches);
+    mediaQuery.addEventListener("change", handler);
+    return () => mediaQuery.removeEventListener("change", handler);
+  }, [theme]);
 
   React.useEffect(() => {
     if (xtermRef.current) {
@@ -56,6 +73,9 @@ export function WorkspaceTerminal({ projectPath }: { projectPath?: string }) {
   React.useEffect(() => {
     if (!terminalRef.current || initialized.current) return;
     initialized.current = true;
+    let isDisposed = false;
+    let unlistenStdout: (() => void) | null = null;
+    let resizeTimer: number | null = null;
 
     // 1. Initialize Terminal
     const term = new Terminal({
@@ -75,23 +95,30 @@ export function WorkspaceTerminal({ projectPath }: { projectPath?: string }) {
     fitAddonRef.current = fitAddon;
 
     // 2. Start the PTY process in Rust
-    const cols = term.cols || 80;
-    const rows = term.rows || 24;
+    let lastCols = term.cols || 80;
+    let lastRows = term.rows || 24;
 
-    invoke("start_terminal", { cols, rows, cwd: projectPath })
+    invoke("start_terminal", { cols: lastCols, rows: lastRows, cwd: projectPath })
       .then(() => {
         console.log("PTY started successfully");
       })
       .catch((err) => {
-        term.write(`\r\n❌ Failed to start terminal: ${err}\r\n`);
+        if (!isDisposed) {
+          term.write(`\r\n❌ Failed to start terminal: ${err}\r\n`);
+        }
       });
 
     // 3. Listen to incoming stdout from PTY and write to xterm
-    let unlistenStdout: (() => void) | null = null;
     listen<string>("terminal-stdout", (event) => {
-      term.write(event.payload);
+      if (!isDisposed) {
+        term.write(event.payload);
+      }
     }).then((unsub) => {
-      unlistenStdout = unsub;
+      if (isDisposed) {
+        unsub();
+      } else {
+        unlistenStdout = unsub;
+      }
     });
 
     // 4. Send keystrokes to Rust PTY
@@ -99,28 +126,38 @@ export function WorkspaceTerminal({ projectPath }: { projectPath?: string }) {
       invoke("write_terminal", { data }).catch(console.error);
     });
 
-    // 5. Handle resizing
+    // 5. Handle resizing (debounced and only on actual dimension changes)
     const resizeObserver = new ResizeObserver(() => {
-      if (fitAddonRef.current && xtermRef.current && terminalRef.current) {
+      if (resizeTimer) cancelAnimationFrame(resizeTimer);
+      resizeTimer = requestAnimationFrame(() => {
+        if (isDisposed || !fitAddonRef.current || !xtermRef.current || !terminalRef.current) return;
         fitAddonRef.current.fit();
         const newCols = xtermRef.current.cols;
         const newRows = xtermRef.current.rows;
-        invoke("resize_terminal", { cols: newCols, rows: newRows }).catch(console.error);
-      }
+        if (newCols && newRows && (newCols !== lastCols || newRows !== lastRows)) {
+          lastCols = newCols;
+          lastRows = newRows;
+          invoke("resize_terminal", { cols: newCols, rows: newRows }).catch(console.error);
+        }
+      });
     });
     resizeObserver.observe(terminalRef.current);
 
     return () => {
+      isDisposed = true;
+      if (resizeTimer) cancelAnimationFrame(resizeTimer);
       onDataDisposable.dispose();
       resizeObserver.disconnect();
-      if (unlistenStdout) unlistenStdout();
+      if (unlistenStdout) {
+        unlistenStdout();
+      }
       term.dispose();
       initialized.current = false;
     };
   }, []);
 
   return (
-    <div className="h-full w-full bg-background px-4 py-2 overflow-hidden">
+    <div className="h-full w-full bg-transparent px-3 py-1.5 overflow-hidden">
       <div ref={terminalRef} className="h-full w-full min-h-0 min-w-0" />
     </div>
   );

@@ -1,10 +1,11 @@
 import Editor from "@monaco-editor/react";
-import { FileCode, X, Layout, FolderOpen } from "lucide-react";
+import { FileCode, X, Layout, FolderOpen, Settings2 } from "lucide-react";
 import * as React from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { FileIcon } from "./file-icon";
 import { ResizableSidebar } from "@/components/ui/ide-resizable";
 import { WorkspaceWelcomeTab } from "./workspace-welcome-tab";
+import { WorkspaceSettingsTab } from "./workspace-settings-tab";
 
 import { cn } from "@/lib/utils";
 
@@ -232,21 +233,42 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
     projectName,
   } = useWorkspaceStore();
   const { theme } = useTheme();
-  const [isDark, setIsDark] = React.useState(true);
+  const monacoRef = React.useRef<any>(null);
+  const [isDark, setIsDark] = React.useState(() => {
+    if (typeof window === "undefined") return true;
+    if (theme === "dark") return true;
+    if (theme === "light") return false;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
   const [showDesigner, setShowDesigner] = React.useState(false);
 
   React.useEffect(() => {
+    let currentDark = true;
     if (theme === "dark") {
-      setIsDark(true);
+      currentDark = true;
     } else if (theme === "light") {
-      setIsDark(false);
+      currentDark = false;
     } else {
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      setIsDark(mediaQuery.matches);
+      currentDark = mediaQuery.matches;
 
-      const listener = (e: MediaQueryListEvent) => setIsDark(e.matches);
+      const listener = (e: MediaQueryListEvent) => {
+        setIsDark(e.matches);
+        if (monacoRef.current) {
+          monacoRef.current.editor.setTheme(e.matches ? "vela-dark" : "vela-light");
+        }
+      };
       mediaQuery.addEventListener("change", listener);
+      setIsDark(currentDark);
+      if (monacoRef.current) {
+        monacoRef.current.editor.setTheme(currentDark ? "vela-dark" : "vela-light");
+      }
       return () => mediaQuery.removeEventListener("change", listener);
+    }
+
+    setIsDark(currentDark);
+    if (monacoRef.current) {
+      monacoRef.current.editor.setTheme(currentDark ? "vela-dark" : "vela-light");
     }
   }, [theme]);
 
@@ -261,6 +283,7 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
   }, []);
 
   const handleEditorWillMount = (monaco: any) => {
+    monacoRef.current = monaco;
     // Register Dart
     monaco.languages.register({ id: "dart" });
     monaco.languages.setMonarchTokensProvider("dart", dartMonarch);
@@ -338,6 +361,25 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
   };
 
   const handleEditorDidMount = (editor: any, monaco: any) => {
+    monacoRef.current = monaco;
+    monaco.editor.setTheme(isDark ? "vela-dark" : "vela-light");
+
+    // Track cursor position for the status bar
+    const initialPos = editor.getPosition();
+    if (initialPos) {
+      useWorkspaceStore.getState().setCursorPosition({
+        line: initialPos.lineNumber,
+        column: initialPos.column,
+      });
+    }
+
+    editor.onDidChangeCursorPosition((e: any) => {
+      useWorkspaceStore.getState().setCursorPosition({
+        line: e.position.lineNumber,
+        column: e.position.column,
+      });
+    });
+
     // Add save command
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       const state = useWorkspaceStore.getState();
@@ -380,366 +422,306 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
 
   return (
     <div className="flex h-full w-full flex-1 flex-col overflow-hidden bg-background">
-      {/* Editor Tabs */}
-      <div className="relative flex h-[38px] items-end bg-[#f4f4f6] dark:bg-[#09090b] pl-0 pr-2 select-none shrink-0 border-b-0">
-        {/* Continuous baseline border outside the active tab */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-border/80 dark:bg-white/[0.12] z-0" />
-
-        {/* Scrollable tabs container */}
-        <div className="relative z-10 flex items-end h-full min-w-0 flex-1 overflow-x-auto no-scrollbar">
-          {tabs.map((tab, index) => {
-            const isFirst = index === 0;
+      {/* Editor Tabs - only rendered when tabs are open, without harsh dividing borders */}
+      {tabs.length > 0 && (
+        <div className="relative flex h-[36px] items-center px-2 select-none shrink-0 gap-1 overflow-x-auto no-scrollbar bg-background">
+          {tabs.map((tab) => {
             const isActive = tab.id === activeTabId;
-            const prevTab = tabs[index - 1];
-            const hasLeftCurve = isActive && !isFirst;
-            const hasRightCurve = isActive;
-            const showDivider =
-              index > 0 && !isActive && prevTab && prevTab.id !== activeTabId;
 
             return (
-              <React.Fragment key={tab.id}>
-                {showDivider && (
-                  <div className="h-3.5 w-px bg-border/40 dark:bg-white/10 shrink-0 mx-0.5 mb-2.5" />
+              <div
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "group relative flex cursor-pointer items-center gap-2 select-none transition-all duration-150 h-7 rounded-md px-2.5 text-xs shrink-0 max-w-[200px]",
+                  isActive
+                    ? "bg-muted/70 text-foreground font-medium shadow-2xs"
+                    : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                 )}
-                <div
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    "group relative flex cursor-pointer items-center gap-2 select-none transition-colors duration-150",
-                    isActive
-                      ? cn(
-                          "z-10 h-[34px] self-end bg-background border-t border-border/80 dark:border-white/[0.12] px-3.5 text-xs font-medium text-foreground -mb-px min-w-[120px] max-w-[220px]",
-                          isFirst
-                            ? "ml-0 mr-3 rounded-tl-none rounded-tr-[8px] border-r border-l-0"
-                            : "ml-3 mr-3 rounded-t-[8px] border-x"
-                        )
-                      : cn(
-                          "z-0 h-[28px] mb-1 rounded-md px-3 text-xs text-muted-foreground min-w-[110px] max-w-[200px] hover:bg-muted/60 hover:text-foreground dark:hover:bg-white/[0.08]",
-                          isFirst ? "ml-1" : "mx-0.5"
-                        )
-                  )}
-                >
-                  {/* Flared smoothed inverted fillet corners on active tab */}
-                  {hasLeftCurve && (
-                    <svg
-                      viewBox="0 0 12 10"
-                      className="pointer-events-none absolute -left-3 bottom-0 w-3 h-[10px] z-20 overflow-visible"
-                      aria-hidden="true"
-                    >
-                      <path
-                        d="M 0 10 C 7 10 12 3 12 0 L 13 0 L 13 11 L 0 11 Z"
-                        className="fill-background"
-                      />
-                      <path
-                        d="M 0 10 C 7 10 12 3 12 0"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1"
-                        className="text-border/80 dark:text-white/[0.12]"
-                      />
-                    </svg>
-                  )}
-
-                  {hasRightCurve && (
-                    <svg
-                      viewBox="0 0 12 10"
-                      className="pointer-events-none absolute -right-3 bottom-0 w-3 h-[10px] z-20 overflow-visible"
-                      aria-hidden="true"
-                    >
-                      <path
-                        d="M 0 0 C 0 3 5 10 12 10 L 12 11 L -1 11 L -1 0 Z"
-                        className="fill-background"
-                      />
-                      <path
-                        d="M 0 0 C 0 3 5 10 12 10"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1"
-                        className="text-border/80 dark:text-white/[0.12]"
-                      />
-                    </svg>
-                  )}
-
-                  {tab.id === "welcome" ? (
-                    <img
-                      src="/app-logo.png"
-                      alt="Vela"
-                      className={cn(
-                        "size-3.5 object-contain shrink-0 transition-opacity",
-                        !isActive && "opacity-75 group-hover:opacity-100"
-                      )}
-                    />
-                  ) : (
-                    <FileIcon
-                      fileName={tab.name}
-                      size={14}
-                      className={cn(
-                        "shrink-0 transition-opacity",
-                        !isActive && "opacity-75 group-hover:opacity-100"
-                      )}
-                    />
-                  )}
-                  <span className="truncate">{tab.name}</span>
-                  <div className="ml-auto flex items-center pl-1">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        closeTab(tab.id);
-                      }}
-                      className={cn(
-                        "group/close relative flex size-4 items-center justify-center rounded-sm transition-colors hover:bg-muted/80 text-muted-foreground hover:text-foreground",
-                        isActive
-                          ? "opacity-100"
-                          : "opacity-0 group-hover:opacity-100"
-                      )}
-                    >
-                      {tab.isModified ? (
-                        <>
-                          <div className="size-1.5 rounded-full bg-primary/80 group-hover/close:hidden" />
-                          <X className="size-2.5 hidden group-hover/close:block" />
-                        </>
-                      ) : (
-                        <X className="size-2.5" />
-                      )}
-                    </button>
-                  </div>
+              >
+                {tab.id === "welcome" ? (
+                  <img
+                    src="/app-logo.png"
+                    alt="Vela"
+                    className={cn(
+                      "size-3.5 object-contain shrink-0 transition-opacity",
+                      !isActive && "opacity-75 group-hover:opacity-100"
+                    )}
+                  />
+                ) : tab.id === "settings" ? (
+                  <Settings2
+                    className={cn(
+                      "size-3.5 shrink-0 transition-opacity text-muted-foreground",
+                      isActive && "text-foreground opacity-100"
+                    )}
+                  />
+                ) : (
+                  <FileIcon
+                    fileName={tab.name}
+                    size={14}
+                    className={cn(
+                      "shrink-0 transition-opacity",
+                      !isActive && "opacity-75 group-hover:opacity-100"
+                    )}
+                  />
+                )}
+                <span className="truncate">{tab.name}</span>
+                <div className="ml-auto flex items-center pl-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeTab(tab.id);
+                    }}
+                    className={cn(
+                      "group/close relative flex size-4 items-center justify-center rounded-sm transition-colors hover:bg-muted text-muted-foreground hover:text-foreground",
+                      isActive
+                        ? "opacity-100"
+                        : "opacity-0 group-hover:opacity-100"
+                    )}
+                  >
+                    {tab.isModified ? (
+                      <>
+                        <div className="size-1.5 rounded-full bg-primary/80 group-hover/close:hidden" />
+                        <X className="size-2.5 hidden group-hover/close:block" />
+                      </>
+                    ) : (
+                      <X className="size-2.5" />
+                    )}
+                  </button>
                 </div>
-              </React.Fragment>
+              </div>
             );
           })}
-        </div>
 
-        {/* Toggle Designer Button */}
-        {activeTab && activeTab.path.endsWith(".dart") && (
-          <div className="ml-auto mr-1 flex items-center gap-2 shrink-0 z-10">
-            <Button
-              variant={showDesigner ? "secondary" : "outline"}
-              size="xs"
-              className={cn(
-                "h-6 text-[10px] gap-1",
-                showDesigner && "border-primary/30 text-primary"
-              )}
-              onClick={() => setShowDesigner(!showDesigner)}
-            >
-              <Layout className="size-3" data-icon="inline-start" />
-              {showDesigner ? "Hide Designer" : "Split Designer"}
-            </Button>
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-1 min-h-0 min-w-0 w-full h-full overflow-hidden">
-        {/* Editor Content with Custom Context Menu */}
-        <div className="flex flex-col min-h-0 min-w-0 flex-1">
-      <ContextMenu>
-        <ContextMenuTrigger className="flex-1 overflow-hidden relative">
-          {activeTabId ? (
-            activeTab?.id === "welcome" ? (
-              <WorkspaceWelcomeTab onSwitchView={onSwitchView} />
-            ) : activeTab?.isLoading ? (
-              <div className="flex h-full items-center justify-center bg-background text-muted-foreground animate-pulse text-sm">
-                Loading {activeTab.name}…
-              </div>
-            ) : (
-              <Editor
-                height="100%"
-                language={
-                  activeTab?.name.endsWith(".dart") ? "dart" : "typescript"
-                }
-                path={activeTab ? `file://${activeTab.path}` : "untitled"}
-                value={content}
-                onChange={(v) => {
-                  if (activeTabId && v !== undefined && !activeTab?.isLoading) {
-                    updateTabContent(activeTabId, v);
-                  }
-                }}
-                theme={isDark ? "vela-dark" : "vela-light"}
-                beforeMount={handleEditorWillMount}
-                onMount={handleEditorDidMount}
-                options={{
-                  automaticLayout: true,
-                  fontSize: 13,
-                  fontFamily:
-                    "'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-                  minimap: { enabled: true, scale: 0.75, side: "right" },
-                  scrollBeyondLastLine: false,
-                  lineNumbers: "on",
-                  glyphMargin: true,
-                  folding: true,
-                  lineDecorationsWidth: 10,
-                  lineNumbersMinChars: 3,
-                  fixedOverflowWidgets: true,
-                  padding: { top: 16, bottom: 16 },
-                  cursorSmoothCaretAnimation: "on",
-                  smoothScrolling: true,
-                  cursorStyle: "line",
-                  renderLineHighlight: "all",
-                  bracketPairColorization: { enabled: true },
-                  guides: { indentation: true, bracketPairs: true },
-                  contextmenu: false, // Disable native context menu
-                }}
-                loading={
-                  <div className="flex h-full items-center justify-center bg-background text-muted-foreground animate-pulse">
-                    Initializing editor…
-                  </div>
-                }
-              />
-            )
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-background">
-              <Empty className="border-none max-w-sm">
-                <EmptyHeader>
-                  <EmptyMedia variant="icon">
-                    {projectName ? (
-                      <FileCode className="size-5 text-muted-foreground" />
-                    ) : (
-                      <FolderOpen className="size-5 text-muted-foreground" />
-                    )}
-                  </EmptyMedia>
-                  <EmptyTitle className="text-sm">
-                    {projectName ? "No file selected" : "No folder opened"}
-                  </EmptyTitle>
-                  <EmptyDescription className="text-xs text-muted-foreground">
-                    {projectName
-                      ? "Select a file from the explorer to view and edit code."
-                      : "Open a folder to start working on your project."}
-                  </EmptyDescription>
-                </EmptyHeader>
-                {!projectName && (
-                  <div className="mt-3 flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleOpenFolder}
-                      className="text-xs"
-                    >
-                      <FolderOpen className="size-3.5 mr-1.5" />
-                      Open Folder
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => useWorkspaceStore.getState().openWelcomeTab()}
-                      className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-                    >
-                      <img
-                        src="/app-logo.png"
-                        alt="Vela"
-                        className="size-3.5 mr-1.5 object-contain shrink-0"
-                      />
-                      Welcome Page
-                    </Button>
-                  </div>
+          {/* Toggle Designer Button */}
+          {activeTab && activeTab.path.endsWith(".dart") && (
+            <div className="ml-auto mr-1 flex items-center gap-2 shrink-0 z-10">
+              <Button
+                variant={showDesigner ? "secondary" : "ghost"}
+                size="xs"
+                className={cn(
+                  "h-6 text-[10px] gap-1",
+                  showDesigner && "text-primary"
                 )}
-              </Empty>
+                onClick={() => setShowDesigner(!showDesigner)}
+              >
+                <Layout className="size-3" data-icon="inline-start" />
+                {showDesigner ? "Hide Designer" : "Split Designer"}
+              </Button>
             </div>
           )}
-        </ContextMenuTrigger>
-        <ContextMenuContent className="w-64">
-          <ContextMenuGroup>
-            <ContextMenuItem>
-              Command Palette…
-              <ContextMenuShortcut>F1</ContextMenuShortcut>
-            </ContextMenuItem>
-          </ContextMenuGroup>
-          <ContextMenuSeparator />
-          <ContextMenuGroup>
-            <ContextMenuItem>
-              Go to Definition
-              <ContextMenuShortcut>F12</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem>Go to Type Definition</ContextMenuItem>
-            <ContextMenuItem>
-              Go to Implementations
-              <ContextMenuShortcut>⌘F12</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem>
-              Go to References
-              <ContextMenuShortcut>⇧F12</ContextMenuShortcut>
-            </ContextMenuItem>
-          </ContextMenuGroup>
-          <ContextMenuSeparator />
-          <ContextMenuGroup>
-            <ContextMenuItem>
-              Format Document
-              <ContextMenuShortcut>⇧⌥F</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem>
-              Format Selection
-              <ContextMenuShortcut>⌘K ⌘F</ContextMenuShortcut>
-            </ContextMenuItem>
-          </ContextMenuGroup>
-          <ContextMenuSeparator />
-          <ContextMenuGroup>
-            <ContextMenuItem>
-              Refactor...
-              <ContextMenuShortcut>⌘⇧R</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem>Source Action...</ContextMenuItem>
-          </ContextMenuGroup>
-          <ContextMenuSeparator />
-          <ContextMenuGroup>
-            <ContextMenuSub>
-              <ContextMenuSubTrigger>
-                Change All Occurrences
-              </ContextMenuSubTrigger>
-              <ContextMenuSubContent className="w-48">
-                <ContextMenuGroup>
-                  <ContextMenuItem>
-                    Rename Symbol<ContextMenuShortcut>F2</ContextMenuShortcut>
-                  </ContextMenuItem>
-                </ContextMenuGroup>
-              </ContextMenuSubContent>
-            </ContextMenuSub>
-          </ContextMenuGroup>
-          <ContextMenuSeparator />
-          <ContextMenuGroup>
-            <ContextMenuItem>
-              Cut
-              <ContextMenuShortcut>⌘X</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem>
-              Copy
-              <ContextMenuShortcut>⌘C</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem>
-              Paste
-              <ContextMenuShortcut>⌘V</ContextMenuShortcut>
-            </ContextMenuItem>
-          </ContextMenuGroup>
-        </ContextMenuContent>
-      </ContextMenu>
-      </div>
-
-      {/* Designer View */}
-      {showDesigner && activeTab && activeTab.path.endsWith(".dart") && (
-        <ResizableSidebar id="designer" side="right" defaultWidth={600} minWidth={300} maxWidth={1200}>
-          <div className="flex-1 w-full h-full border-l border-border bg-background">
-            <VelaDesigner code={content || ""} filePath={activeTab.path} />
-          </div>
-        </ResizableSidebar>
+        </div>
       )}
-      </div>
 
-      {/* Breadcrumbs */}
-      <div className="flex h-6 items-center border-t border-border/40 bg-muted/20 px-3 text-[11px] text-muted-foreground">
-        {activeTab ? (
-          activeTab.id === "welcome" ? (
-            <span className="text-[11px] text-muted-foreground/80">Welcome</span>
-          ) : (
-            <div className="flex items-center gap-1.5 overflow-hidden truncate">
-              {activeTab.path.split(/[/\\]/).filter(Boolean).map((part, index, arr) => (
-                <React.Fragment key={index}>
-                  <span className={cn(index === arr.length - 1 ? "text-foreground font-medium" : "text-muted-foreground/80")}>
-                    {part}
-                  </span>
-                  {index < arr.length - 1 && <span className="opacity-30">/</span>}
-                </React.Fragment>
-              ))}
+      <div className="flex flex-1 min-h-0 min-w-0 w-full h-full overflow-hidden px-2 pb-2 pt-0.5 gap-2">
+        {/* Editor Content Card with Rounded Corners */}
+        <div className="flex flex-col min-h-0 min-w-0 flex-1 h-full overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs isolate">
+          {/* Breadcrumbs / File hierarchy only shown when an active file is open */}
+          {activeTab && activeTab.id !== "welcome" && activeTab.id !== "settings" && (
+            <div className="flex h-[22px] items-center bg-transparent px-3 text-[11px] text-muted-foreground shrink-0 pt-1">
+              <div className="flex items-center gap-1.5 overflow-hidden truncate">
+                {activeTab.path.split(/[/\\]/).filter(Boolean).map((part, index, arr) => (
+                  <React.Fragment key={index}>
+                    <span className={cn(index === arr.length - 1 ? "text-foreground font-medium" : "text-muted-foreground/80")}>
+                      {part}
+                    </span>
+                    {index < arr.length - 1 && <span className="opacity-30">/</span>}
+                  </React.Fragment>
+                ))}
+              </div>
             </div>
-          )
-        ) : (
-          <span className="text-[10px] text-muted-foreground/60">No file open</span>
+          )}
+
+          <ContextMenu>
+            <ContextMenuTrigger className="flex-1 overflow-hidden relative">
+              {activeTabId ? (
+                activeTab?.id === "welcome" ? (
+                  <WorkspaceWelcomeTab onSwitchView={onSwitchView} />
+                ) : activeTab?.id === "settings" ? (
+                  <WorkspaceSettingsTab />
+                ) : activeTab?.isLoading ? (
+                  <div className="flex h-full items-center justify-center bg-card text-muted-foreground animate-pulse text-sm">
+                    Loading {activeTab.name}…
+                  </div>
+                ) : (
+                  <Editor
+                    height="100%"
+                    language={
+                      activeTab?.name.endsWith(".dart") ? "dart" : "typescript"
+                    }
+                    path={activeTab ? `file://${activeTab.path}` : "untitled"}
+                    value={content}
+                    onChange={(v) => {
+                      if (activeTabId && v !== undefined && !activeTab?.isLoading) {
+                        updateTabContent(activeTabId, v);
+                      }
+                    }}
+                    theme={isDark ? "vela-dark" : "vela-light"}
+                    beforeMount={handleEditorWillMount}
+                    onMount={handleEditorDidMount}
+                    options={{
+                      automaticLayout: true,
+                      fontSize: 13,
+                      fontFamily:
+                        "'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                      minimap: { enabled: true, scale: 0.75, side: "right" },
+                      scrollBeyondLastLine: false,
+                      lineNumbers: "on",
+                      glyphMargin: true,
+                      folding: true,
+                      lineDecorationsWidth: 10,
+                      lineNumbersMinChars: 3,
+                      fixedOverflowWidgets: true,
+                      padding: { top: 4, bottom: 12 },
+                      cursorSmoothCaretAnimation: "on",
+                      smoothScrolling: true,
+                      cursorStyle: "line",
+                      renderLineHighlight: "all",
+                      bracketPairColorization: { enabled: true },
+                      guides: { indentation: true, bracketPairs: true },
+                      contextmenu: false, // Disable native context menu
+                    }}
+                    loading={
+                      <div className="flex h-full items-center justify-center bg-card text-muted-foreground animate-pulse">
+                        Initializing editor…
+                      </div>
+                    }
+                  />
+                )
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-transparent">
+                  <Empty className="border-none max-w-sm">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        {projectName ? (
+                          <FileCode className="size-5 text-muted-foreground" />
+                        ) : (
+                          <FolderOpen className="size-5 text-muted-foreground" />
+                        )}
+                      </EmptyMedia>
+                      <EmptyTitle className="text-sm">
+                        {projectName ? "No file selected" : "No folder opened"}
+                      </EmptyTitle>
+                      <EmptyDescription className="text-xs text-muted-foreground">
+                        {projectName
+                          ? "Select a file from the explorer to view and edit code."
+                          : "Open a folder to start working on your project."}
+                      </EmptyDescription>
+                    </EmptyHeader>
+                    {!projectName && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleOpenFolder}
+                          className="text-xs"
+                        >
+                          <FolderOpen className="size-3.5 mr-1.5" />
+                          Open Folder
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => useWorkspaceStore.getState().openWelcomeTab()}
+                          className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                        >
+                          <img
+                            src="/app-logo.png"
+                            alt="Vela"
+                            className="size-3.5 mr-1.5 object-contain shrink-0"
+                          />
+                          Welcome Page
+                        </Button>
+                      </div>
+                    )}
+                  </Empty>
+                </div>
+              )}
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-64">
+              <ContextMenuGroup>
+                <ContextMenuItem>
+                  Command Palette…
+                  <ContextMenuShortcut>F1</ContextMenuShortcut>
+                </ContextMenuItem>
+              </ContextMenuGroup>
+              <ContextMenuSeparator />
+              <ContextMenuGroup>
+                <ContextMenuItem>
+                  Go to Definition
+                  <ContextMenuShortcut>F12</ContextMenuShortcut>
+                </ContextMenuItem>
+                <ContextMenuItem>Go to Type Definition</ContextMenuItem>
+                <ContextMenuItem>
+                  Go to Implementations
+                  <ContextMenuShortcut>⌘F12</ContextMenuShortcut>
+                </ContextMenuItem>
+                <ContextMenuItem>
+                  Go to References
+                  <ContextMenuShortcut>⇧F12</ContextMenuShortcut>
+                </ContextMenuItem>
+              </ContextMenuGroup>
+              <ContextMenuSeparator />
+              <ContextMenuGroup>
+                <ContextMenuItem>
+                  Format Document
+                  <ContextMenuShortcut>⇧⌥F</ContextMenuShortcut>
+                </ContextMenuItem>
+                <ContextMenuItem>
+                  Format Selection
+                  <ContextMenuShortcut>⌘K ⌘F</ContextMenuShortcut>
+                </ContextMenuItem>
+              </ContextMenuGroup>
+              <ContextMenuSeparator />
+              <ContextMenuGroup>
+                <ContextMenuItem>
+                  Refactor...
+                  <ContextMenuShortcut>⌘⇧R</ContextMenuShortcut>
+                </ContextMenuItem>
+                <ContextMenuItem>Source Action...</ContextMenuItem>
+              </ContextMenuGroup>
+              <ContextMenuSeparator />
+              <ContextMenuGroup>
+                <ContextMenuSub>
+                  <ContextMenuSubTrigger>
+                    Change All Occurrences
+                  </ContextMenuSubTrigger>
+                  <ContextMenuSubContent className="w-48">
+                    <ContextMenuGroup>
+                      <ContextMenuItem>
+                        Rename Symbol<ContextMenuShortcut>F2</ContextMenuShortcut>
+                      </ContextMenuItem>
+                    </ContextMenuGroup>
+                  </ContextMenuSubContent>
+                </ContextMenuSub>
+              </ContextMenuGroup>
+              <ContextMenuSeparator />
+              <ContextMenuGroup>
+                <ContextMenuItem>
+                  Cut
+                  <ContextMenuShortcut>⌘X</ContextMenuShortcut>
+                </ContextMenuItem>
+                <ContextMenuItem>
+                  Copy
+                  <ContextMenuShortcut>⌘C</ContextMenuShortcut>
+                </ContextMenuItem>
+                <ContextMenuItem>
+                  Paste
+                  <ContextMenuShortcut>⌘V</ContextMenuShortcut>
+                </ContextMenuItem>
+              </ContextMenuGroup>
+            </ContextMenuContent>
+          </ContextMenu>
+        </div>
+
+        {/* Designer View */}
+        {showDesigner && activeTab && activeTab.path.endsWith(".dart") && (
+          <ResizableSidebar id="designer" side="right" defaultWidth={600} minWidth={300} maxWidth={1200}>
+            <div className="flex-1 w-full h-full rounded-xl bg-background overflow-hidden shadow-2xs isolate">
+              <VelaDesigner code={content || ""} filePath={activeTab.path} />
+            </div>
+          </ResizableSidebar>
         )}
       </div>
     </div>
