@@ -41,6 +41,7 @@ function TreeNode({
   const [childrenList, setChildrenList] = React.useState<FileNode[] | null>(() => node.children || null);
   const [isLoading, setIsLoading] = React.useState(false);
   const { addTab, activeTabId, projectPath } = useWorkspaceStore();
+  const treeRevision = useWorkspaceStore((state) => state.treeRevision);
 
   const loadFolderChildren = React.useCallback(async () => {
     setIsLoading(true);
@@ -64,23 +65,10 @@ function TreeNode({
   };
 
   React.useEffect(() => {
-    if (!isFolder || !open) return;
-    let unlisten: (() => void) | null = null;
-    import("@tauri-apps/api/event").then(({ listen }) => {
-      listen<{ action: string; paths: string[] }>("workspace-fs-change", (event) => {
-        const paths = event.payload?.paths || [];
-        const touchesFolder = paths.some((p) => p.startsWith(node.path));
-        if (touchesFolder) {
-          loadFolderChildren();
-        }
-      }).then((unsub) => {
-        unlisten = unsub;
-      });
-    });
-    return () => {
-      unlisten?.();
-    };
-  }, [isFolder, open, node.path, loadFolderChildren]);
+    if (isFolder && open) {
+      loadFolderChildren();
+    }
+  }, [treeRevision, isFolder, open, loadFolderChildren]);
 
   const handleCopyPath = () => {
     navigator.clipboard.writeText(node.path);
@@ -227,6 +215,8 @@ function ExplorerView() {
   const setFileTree = useWorkspaceStore((state) => state.setFileTree);
   const projectName = useWorkspaceStore((state) => state.projectName) || "No Project";
   const projectPath = useWorkspaceStore((state) => state.projectPath);
+  const treeRevision = useWorkspaceStore((state) => state.treeRevision);
+  const refreshFileTree = useWorkspaceStore((state) => state.refreshFileTree);
 
   const loadRootTree = React.useCallback(async () => {
     if (!projectPath) {
@@ -251,32 +241,37 @@ function ExplorerView() {
     loadRootTree();
 
     let unlisten: (() => void) | null = null;
+    let debounceTimer: any = null;
+
     import("../api/workspace.api").then(({ workspaceApi }) => {
       workspaceApi.startWatchingWorkspace(projectPath).catch(console.error);
     });
 
     import("@tauri-apps/api/event").then(({ listen }) => {
-      listen<{ action: string; paths: string[] }>("workspace-fs-change", (event) => {
-        const paths = event.payload?.paths || [];
-        const affectsRoot = paths.some((p) => {
-          const parent = p.replace(/[/\\][^/\\]+$/, "");
-          return parent === projectPath || p === projectPath;
-        });
-        if (affectsRoot) {
-          loadRootTree();
-        }
+      listen<{ action: string; paths: string[] }>("workspace-fs-change", () => {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          refreshFileTree();
+        }, 100);
       }).then((unsub) => {
         unlisten = unsub;
       });
     });
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       unlisten?.();
       import("../api/workspace.api").then(({ workspaceApi }) => {
         workspaceApi.stopWatchingWorkspace().catch(() => {});
       });
     };
-  }, [projectPath, loadRootTree, setFileTree]);
+  }, [projectPath, refreshFileTree, setFileTree]);
+
+  React.useEffect(() => {
+    if (projectPath) {
+      loadRootTree();
+    }
+  }, [treeRevision, projectPath, loadRootTree]);
 
 
   const handleOpenFolder = async () => {

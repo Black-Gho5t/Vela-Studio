@@ -233,7 +233,7 @@ export async function updateFlutterFileScreenLayout(
     content = generateFlutterScreenCode(className, screenTitle, layoutType);
   }
 
-  const { projectPath, tabs, updateTabContent, setFileTree } = useWorkspaceStore.getState();
+  const { projectPath, tabs, updateTabContent } = useWorkspaceStore.getState();
   const resolvedPath = resolveAbsoluteFilePath(filePath, projectPath);
 
   // 1. Update on disk using Tauri IPC
@@ -242,10 +242,7 @@ export async function updateFlutterFileScreenLayout(
     await workspaceApi.saveFile(resolvedPath, content);
 
     // Refresh directory tree so changes appear in explorer
-    if (projectPath) {
-      const tree = await workspaceApi.getDirectoryChildren(projectPath);
-      setFileTree(tree);
-    }
+    useWorkspaceStore.getState().refreshFileTree();
   } catch (err) {
     console.warn("Could not update Flutter file on disk:", err);
   }
@@ -273,7 +270,7 @@ export async function deleteFlutterFileForFrame(
   fileName?: string
 ): Promise<void> {
   if (!filePath && !fileName) return;
-  const { projectPath, tabs, closeTab, setFileTree } = useWorkspaceStore.getState();
+  const { projectPath, tabs, closeTab } = useWorkspaceStore.getState();
   const targetPath = filePath || (fileName ? `lib/screens/${fileName}` : "");
   if (!targetPath) return;
 
@@ -285,10 +282,7 @@ export async function deleteFlutterFileForFrame(
     await workspaceApi.deleteFile(resolvedPath);
 
     // Refresh directory tree so file disappears from explorer
-    if (projectPath) {
-      const tree = await workspaceApi.getDirectoryChildren(projectPath);
-      setFileTree(tree);
-    }
+    useWorkspaceStore.getState().refreshFileTree();
   } catch (err) {
     console.warn("Could not delete file from disk:", err);
   }
@@ -324,7 +318,7 @@ export async function createFlutterFileForFrame(
     content = generateFlutterScreenCode(className, frameName);
   }
 
-  const { projectPath, addTab, setFileTree } = useWorkspaceStore.getState();
+  const { projectPath, addTab } = useWorkspaceStore.getState();
   const relativePath = `lib/screens/${fileName}`;
   const resolvedPath = resolveAbsoluteFilePath(relativePath, projectPath);
 
@@ -334,10 +328,7 @@ export async function createFlutterFileForFrame(
     await workspaceApi.saveFile(resolvedPath, content);
 
     // Refresh directory tree so it appears in explorer
-    if (projectPath) {
-      const tree = await workspaceApi.getDirectoryChildren(projectPath);
-      setFileTree(tree);
-    }
+    useWorkspaceStore.getState().refreshFileTree();
   } catch (err) {
     console.warn("Could not save Flutter file to disk:", err);
   }
@@ -352,7 +343,7 @@ export async function createFlutterFileForFrame(
       id: resolvedPath,
       name: fileName,
       path: resolvedPath,
-      isActive: false,
+      isActive: true,
       isModified: false,
       content,
     });

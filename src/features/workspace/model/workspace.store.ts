@@ -14,6 +14,7 @@ interface WorkspaceActions {
 
   // Files
   setFileTree: (tree: FileNode[]) => void;
+  refreshFileTree: () => void;
 
   // Editor
   updateTabContent: (tabId: string, content: string) => void;
@@ -45,6 +46,7 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       tabs: [],
       activeTabId: null,
       fileTree: [],
+      treeRevision: 0,
       devices: [],
       selectedDeviceId: null,
       workspaceMode: "editor",
@@ -139,6 +141,7 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       setActiveTab: (tabId) => set({ activeTabId: tabId }),
 
       setFileTree: (tree) => set({ fileTree: tree }),
+      refreshFileTree: () => set((state) => ({ treeRevision: state.treeRevision + 1 })),
 
       updateTabContent: (tabId, content) =>
         set((state) => ({

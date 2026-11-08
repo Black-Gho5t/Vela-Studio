@@ -35,7 +35,7 @@ import { DesignerCanvas, type CanvasDeviceFrame, type CanvasWidgetElement } from
 import { type DesignerTool } from "./designer-dock";
 import { DesignerFramePresets, type FramePresetItem } from "./designer-frame-presets";
 import { DesignerFrameProperties } from "./designer-frame-properties";
-import { createFlutterFileForFrame, debouncedSyncFrameToFile } from "../model/designer-frame-file";
+import { createFlutterFileForFrame, debouncedSyncFrameToFile, syncFrameToFile } from "../model/designer-frame-file";
 import { parseDartCodeToFrameElements } from "../model/code-to-canvas-sync";
 import { VelaSetupScreen } from "./vela-setup";
 import { useWorkspaceStore } from "../model/workspace.store";
@@ -362,6 +362,45 @@ export function WorkspaceShell() {
       });
     }
   }, [workspaceMode, activeTabId]);
+
+  // Synchronize Designer frames back to Editor when entering editor mode
+  React.useEffect(() => {
+    if (workspaceMode !== "editor") return;
+
+    // Refresh file tree in sidebar immediately so newly created frame files show up
+    useWorkspaceStore.getState().refreshFileTree();
+
+    const currentFrame =
+      designerFrames.find((f) => f.id === selectedFrameId) ||
+      designerFrames[designerFrames.length - 1];
+
+    if (currentFrame) {
+      // Flush any pending frame modifications to disk and memory
+      syncFrameToFile(currentFrame).catch(console.error);
+
+      const targetPath = currentFrame.filePath;
+      const targetName = currentFrame.fileName;
+      const store = useWorkspaceStore.getState();
+
+      const existingTab = store.tabs.find(
+        (t) =>
+          (targetPath && (t.path === targetPath || t.id === targetPath)) ||
+          (targetName && t.name === targetName)
+      );
+
+      if (existingTab) {
+        store.setActiveTab(existingTab.id);
+      } else if (targetPath) {
+        store.addTab({
+          id: targetPath,
+          name: targetName || targetPath.split(/[/\\]/).pop() || "screen.dart",
+          path: targetPath,
+          isActive: true,
+          isModified: false,
+        });
+      }
+    }
+  }, [workspaceMode, selectedFrameId, designerFrames]);
 
   const handleViewChange = (view: "explorer" | "search" | "git") => {
     if (activeView === view && leftPanel) {

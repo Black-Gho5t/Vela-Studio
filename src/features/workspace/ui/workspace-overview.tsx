@@ -231,9 +231,12 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
     closeTab,
     updateTabContent,
     projectName,
+    workspaceMode,
   } = useWorkspaceStore();
   const { theme } = useTheme();
   const monacoRef = React.useRef<any>(null);
+  const editorRef = React.useRef<any>(null);
+  const editorContainerRef = React.useRef<HTMLDivElement>(null);
   const [isDark, setIsDark] = React.useState(() => {
     if (typeof window === "undefined") return true;
     if (theme === "dark") return true;
@@ -361,6 +364,7 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
   };
 
   const handleEditorDidMount = (editor: any, monaco: any) => {
+    editorRef.current = editor;
     monacoRef.current = monaco;
     monaco.editor.setTheme(isDark ? "vela-dark" : "vela-light");
 
@@ -403,6 +407,32 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
       });
     });
   };
+
+  // Re-layout and synchronize editor content immediately when entering editor mode
+  React.useEffect(() => {
+    if (workspaceMode === "editor" && editorRef.current) {
+      requestAnimationFrame(() => {
+        editorRef.current?.layout();
+      });
+
+      if (activeTab?.content !== undefined) {
+        const currentVal = editorRef.current.getValue();
+        if (currentVal !== activeTab.content) {
+          editorRef.current.setValue(activeTab.content);
+        }
+      }
+    }
+  }, [workspaceMode, activeTabId, activeTab?.content]);
+
+  // Observe container resizing to keep Monaco layout always in sync
+  React.useEffect(() => {
+    if (!editorContainerRef.current) return;
+    const ro = new ResizeObserver(() => {
+      editorRef.current?.layout();
+    });
+    ro.observe(editorContainerRef.current);
+    return () => ro.disconnect();
+  }, []);
 
   const handleOpenFolder = async () => {
     try {
@@ -534,7 +564,7 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
           )}
 
           <ContextMenu>
-            <ContextMenuTrigger className="flex-1 overflow-hidden relative">
+            <ContextMenuTrigger ref={editorContainerRef} className="flex-1 overflow-hidden relative">
               {activeTabId ? (
                 activeTab?.id === "welcome" ? (
                   <WorkspaceWelcomeTab onSwitchView={onSwitchView} />

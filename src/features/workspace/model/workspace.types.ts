@@ -36,6 +36,7 @@ export interface WorkspaceState {
   tabs: WorkspaceTab[];
   activeTabId: string | null;
   fileTree: FileNode[];
+  treeRevision: number;
   devices: any[];
   selectedDeviceId: string | null;
   workspaceMode: WorkspaceMode;
