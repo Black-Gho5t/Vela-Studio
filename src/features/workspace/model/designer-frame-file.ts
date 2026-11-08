@@ -225,7 +225,13 @@ export async function updateFlutterFileScreenLayout(
   layoutType: ScreenLayoutType
 ): Promise<void> {
   const className = getFlutterClassName(fileName);
-  const content = generateFlutterScreenCode(className, screenTitle, layoutType);
+  let content = "";
+  try {
+    const { workspaceApi } = await import("../api/workspace.api");
+    content = await workspaceApi.generateFlutterScreen(className, screenTitle, layoutType);
+  } catch {
+    content = generateFlutterScreenCode(className, screenTitle, layoutType);
+  }
 
   const { projectPath, tabs, updateTabContent, setFileTree } = useWorkspaceStore.getState();
   const resolvedPath = resolveAbsoluteFilePath(filePath, projectPath);
@@ -309,7 +315,14 @@ export async function createFlutterFileForFrame(
 ): Promise<{ fileName: string; filePath: string; className: string; content: string }> {
   const fileName = getFlutterFileName(frameName, existingFileNames);
   const className = getFlutterClassName(fileName);
-  const content = generateFlutterScreenCode(className, frameName);
+
+  let content = "";
+  try {
+    const { workspaceApi } = await import("../api/workspace.api");
+    content = await workspaceApi.generateFlutterScreen(className, frameName, "scaffold");
+  } catch {
+    content = generateFlutterScreenCode(className, frameName);
+  }
 
   const { projectPath, addTab, setFileTree } = useWorkspaceStore.getState();
   const relativePath = `lib/screens/${fileName}`;
@@ -358,7 +371,7 @@ export async function createFlutterFileForFrame(
  * surgically updating the Widget build method body and triggering Flutter Hot Reload.
  */
 export async function syncFrameToFile(frame: CanvasDeviceFrame): Promise<void> {
-  const { projectPath, tabs, updateTabContent, setFileTree } = useWorkspaceStore.getState();
+  const { projectPath, tabs, updateTabContent } = useWorkspaceStore.getState();
   const fileName = frame.fileName || getFlutterFileName(frame.name);
   const className = getFlutterClassName(fileName);
   const targetPath = frame.filePath || `lib/screens/${fileName}`;
@@ -383,36 +396,32 @@ export async function syncFrameToFile(frame: CanvasDeviceFrame): Promise<void> {
   let finalContent = "";
   if (existingContent && existingContent.includes("Widget build(")) {
     const bodyContent = generateFrameBodyCode(frame);
-    // Surgically replace body: ... in the Scaffold
-    const bodyRegex = /body:\s*([\s\S]*?)(,\s*(\n\s*)?\);|\);\s*\n)/;
-    if (bodyRegex.test(existingContent)) {
-      finalContent = existingContent.replace(bodyRegex, `body: ${bodyContent}$2`);
-    } else {
+    try {
+      const { workspaceApi } = await import("../api/workspace.api");
+      // Use Rust AST Tree-sitter engine to surgically patch Scaffold body non-destructively:
+      finalContent = await workspaceApi.patchScaffoldBody(resolvedPath, bodyContent, existingContent);
+    } catch (err) {
+      console.warn("Rust AST patch error, falling back to full screen generator:", err);
       finalContent = generateFullFlutterScreen(className, frame.name, frame);
+      const { workspaceApi } = await import("../api/workspace.api");
+      await workspaceApi.saveFile(resolvedPath, finalContent);
     }
   } else {
     finalContent = generateFullFlutterScreen(className, frame.name, frame);
-  }
-
-  // 1. Save to disk via Tauri IPC
-  try {
-    const { workspaceApi } = await import("../api/workspace.api");
-    await workspaceApi.saveFile(resolvedPath, finalContent);
-
-    if (projectPath) {
-      const tree = await workspaceApi.getDirectoryTree(projectPath);
-      setFileTree(tree);
+    try {
+      const { workspaceApi } = await import("../api/workspace.api");
+      await workspaceApi.saveFile(resolvedPath, finalContent);
+    } catch (err) {
+      console.warn("Could not save Flutter file for frame to disk:", err);
     }
-  } catch (err) {
-    console.warn("Could not save Flutter file for frame to disk:", err);
   }
 
-  // 2. Update tab content in store
+  // 1. Update tab content in store (instantly reflects in Monaco)
   if (openTab) {
     updateTabContent(openTab.id, finalContent);
   }
 
-  // 3. Trigger Flutter Hot Reload
+  // 2. Trigger Flutter Hot Reload
   try {
     const { invoke } = await import("@tauri-apps/api/core");
     await invoke("send_flutter_daemon_message", {

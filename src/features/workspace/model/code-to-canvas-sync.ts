@@ -85,7 +85,8 @@ export function astNodesToCanvasElements(nodes: AstWidgetNode[]): CanvasWidgetEl
 }
 
 /**
- * Parsea un código fuente Dart y devuelve las propiedades del marco y sus elementos.
+ * Parsea un código fuente Dart y devuelve las propiedades del marco y sus elementos
+ * utilizando el motor AST nativo de Rust (Tree-sitter).
  */
 export async function parseDartCodeToFrameElements(sourceCode: string): Promise<{
   elements: CanvasWidgetElement[];
@@ -93,35 +94,44 @@ export async function parseDartCodeToFrameElements(sourceCode: string): Promise<
   screenLayout: ScreenLayoutType;
 }> {
   try {
-    const rawJson = await invoke<string>("parse_dart_file", { sourceCode });
-    const rootNode: AstWidgetNode = JSON.parse(rawJson);
-
-    let layoutFlow: LayoutFlow = "vertical";
-    let screenLayout: ScreenLayoutType = "scaffold";
-
-    // Detect layout type from AST
-    if (sourceCode.includes("CustomScrollView") || sourceCode.includes("SliverAppBar")) {
-      screenLayout = "scrollable";
-    } else if (sourceCode.includes("Stack(")) {
-      screenLayout = "stack";
-      layoutFlow = "none";
-    } else if (sourceCode.includes("Row(")) {
-      layoutFlow = "horizontal";
-    }
-
-    const elements = astNodesToCanvasElements([rootNode]);
-
+    const { workspaceApi } = await import("../api/workspace.api");
+    const res = await workspaceApi.parseDartFileToCanvas(sourceCode);
     return {
-      elements,
-      layoutFlow,
-      screenLayout,
+      elements: (res.elements || []) as CanvasWidgetElement[],
+      layoutFlow: (res.layout_flow as LayoutFlow) || "vertical",
+      screenLayout: (res.screen_layout as ScreenLayoutType) || "scaffold",
     };
   } catch (err) {
-    console.warn("Failed to parse dart code to frame elements:", err);
-    return {
-      elements: [],
-      layoutFlow: "vertical",
-      screenLayout: "scaffold",
-    };
+    console.warn("Rust AST canvas parser error, using local fallback:", err);
+    try {
+      const rawJson = await invoke<string>("parse_dart_file", { sourceCode });
+      const rootNode: AstWidgetNode = JSON.parse(rawJson);
+
+      let layoutFlow: LayoutFlow = "vertical";
+      let screenLayout: ScreenLayoutType = "scaffold";
+
+      if (sourceCode.includes("CustomScrollView") || sourceCode.includes("SliverAppBar")) {
+        screenLayout = "scrollable";
+      } else if (sourceCode.includes("Stack(")) {
+        screenLayout = "stack";
+        layoutFlow = "none";
+      } else if (sourceCode.includes("Row(")) {
+        layoutFlow = "horizontal";
+      }
+
+      const elements = astNodesToCanvasElements([rootNode]);
+
+      return {
+        elements,
+        layoutFlow,
+        screenLayout,
+      };
+    } catch {
+      return {
+        elements: [],
+        layoutFlow: "vertical",
+        screenLayout: "scaffold",
+      };
+    }
   }
 }

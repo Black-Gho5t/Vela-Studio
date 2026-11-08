@@ -755,6 +755,49 @@ async fn update_theme_color_in_file(file_path: String, var_name: String, new_hex
 }
 
 #[tauri::command]
+async fn patch_scaffold_body(
+    file_path: String,
+    body_code: String,
+    current_source: Option<String>,
+) -> Result<String, String> {
+    let source = match current_source {
+        Some(s) if !s.trim().is_empty() => s,
+        _ => std::fs::read_to_string(&file_path)
+            .map_err(|e| format!("Failed to read file: {}", e))?,
+    };
+
+    let patched = ast_parser::patch_scaffold_body_in_source(&source, &body_code)?;
+
+    if let Some(parent) = std::path::Path::new(&file_path).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    std::fs::write(&file_path, &patched)
+        .map_err(|e| format!("Failed to save patched file: {}", e))?;
+
+    Ok(patched)
+}
+
+#[tauri::command]
+async fn parse_dart_file_to_canvas(
+    source_code: String,
+) -> Result<ast_parser::CanvasSyncResult, String> {
+    Ok(ast_parser::parse_dart_to_canvas_data(&source_code))
+}
+
+#[tauri::command]
+async fn generate_flutter_screen(
+    class_name: String,
+    screen_title: String,
+    layout_type: String,
+) -> Result<String, String> {
+    Ok(ast_parser::generate_flutter_screen_code(
+        &class_name,
+        &screen_title,
+        &layout_type,
+    ))
+}
+
+#[tauri::command]
 fn is_macos() -> bool {
     cfg!(target_os = "macos")
 }
@@ -801,6 +844,9 @@ pub fn run() {
             scan_flutter_theme_in_project,
             generate_flutter_colors_code,
             update_theme_color_in_file,
+            patch_scaffold_body,
+            parse_dart_file_to_canvas,
+            generate_flutter_screen,
             is_macos
         ])
         .run(tauri::generate_context!())

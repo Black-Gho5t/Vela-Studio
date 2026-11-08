@@ -814,9 +814,549 @@ pub fn update_theme_color_in_file(file_path: &str, var_name: &str, new_hex: &str
     }
 }
 
+// ---------------------------------------------------------------------------
+// Canvas & Screen AST Patching / Extraction Engine
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CanvasWidgetElement {
+    pub id: String,
+    pub r#type: String,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    pub x: f64,
+    pub y: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    #[serde(rename = "textColor", skip_serializing_if = "Option::is_none")]
+    pub text_color: Option<String>,
+    #[serde(rename = "fontSize", skip_serializing_if = "Option::is_none")]
+    pub font_size: Option<f64>,
+    #[serde(rename = "borderRadius", skip_serializing_if = "Option::is_none")]
+    pub border_radius: Option<f64>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct CanvasSyncResult {
+    pub elements: Vec<CanvasWidgetElement>,
+    pub layout_flow: String,
+    pub screen_layout: String,
+}
+
+fn find_scaffold_node<'a>(node: Node<'a>, source: &'a [u8]) -> Option<Node<'a>> {
+    let kind = node.kind();
+    if kind == "creation_expression"
+        || kind == "invocation_expression"
+        || kind == "call_expression"
+        || kind == "const_object_expression"
+    {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "identifier" || child.kind() == "type_identifier" {
+                if let Ok(text) = child.utf8_text(source) {
+                    if text == "Scaffold" {
+                        return Some(node);
+                    }
+                }
+            }
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if let Some(found) = find_scaffold_node(child, source) {
+            return Some(found);
+        }
+    }
+
+    None
+}
+
+/// Surgically patches the `body: ...` property inside a Scaffold widget in source code,
+/// preserving all existing functions, comments, imports, and other Scaffold properties.
+pub fn patch_scaffold_body_in_source(source_code: &str, new_body: &str) -> Result<String, String> {
+    let mut parser = Parser::new();
+    let language = tree_sitter_dart::LANGUAGE;
+    parser
+        .set_language(&language.into())
+        .map_err(|e| format!("Failed to set language: {:?}", e))?;
+
+    let tree = parser
+        .parse(source_code, None)
+        .ok_or_else(|| "Failed to parse Dart source".to_string())?;
+
+    let root_node = tree.root_node();
+    let source_bytes = source_code.as_bytes();
+
+    let scaffold_node = find_scaffold_node(root_node, source_bytes)
+        .ok_or_else(|| "No Scaffold found in Dart source".to_string())?;
+
+    let mut args_node = None;
+    let mut cursor = scaffold_node.walk();
+    for child in scaffold_node.children(&mut cursor) {
+        if child.kind() == "arguments" {
+            args_node = Some(child);
+            break;
+        }
+    }
+
+    let args = args_node.ok_or_else(|| "Scaffold has no arguments node".to_string())?;
+
+    // Search for named_argument with label "body"
+    let mut body_arg = None;
+    let mut arg_cursor = args.walk();
+    for child in args.children(&mut arg_cursor) {
+        if child.kind() == "named_argument" {
+            let mut is_body = false;
+            let mut label_cursor = child.walk();
+            for sub in child.children(&mut label_cursor) {
+                if sub.kind() == "label" {
+                    if let Ok(label_str) = sub.utf8_text(source_bytes) {
+                        let clean = label_str.trim_matches(|c| c == ':' || c == ' ');
+                        if clean == "body" {
+                            is_body = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if is_body {
+                body_arg = Some(child);
+                break;
+            }
+        }
+    }
+
+    if let Some(body_node) = body_arg {
+        let mut val_node = None;
+        let mut inner_cursor = body_node.walk();
+        for child in body_node.children(&mut inner_cursor) {
+            if child.kind() != "label" && child.kind() != ":" {
+                val_node = Some(child);
+            }
+        }
+
+        if let Some(val) = val_node {
+            let mut new_source = String::with_capacity(source_code.len() + new_body.len());
+            new_source.push_str(&source_code[..val.start_byte()]);
+            new_source.push_str(new_body.trim());
+            new_source.push_str(&source_code[val.end_byte()..]);
+            return Ok(new_source);
+        }
+    }
+
+    // If body named_argument was not found, insert body before closing ')'
+    let end_b = args.end_byte();
+    if end_b > 0 && source_bytes[end_b - 1] == b')' {
+        let insert_idx = end_b - 1;
+        let mut new_source = String::with_capacity(source_code.len() + new_body.len() + 32);
+        new_source.push_str(&source_code[..insert_idx]);
+
+        let trimmed_before = source_code[..insert_idx].trim_end();
+        if !trimmed_before.ends_with('(') && !trimmed_before.ends_with(',') {
+            new_source.push_str(",\n      body: ");
+        } else {
+            new_source.push_str("\n      body: ");
+        }
+        new_source.push_str(new_body.trim());
+        new_source.push_str(",\n    ");
+        new_source.push_str(&source_code[insert_idx..]);
+        return Ok(new_source);
+    }
+
+    Err("Could not find closing parenthesis in Scaffold arguments".to_string())
+}
+
+fn detect_layouts_from_ast(
+    node: Node,
+    source: &[u8],
+    screen_layout: &mut String,
+    layout_flow: &mut String,
+) {
+    let kind = node.kind();
+    if kind == "creation_expression"
+        || kind == "invocation_expression"
+        || kind == "call_expression"
+        || kind == "const_object_expression"
+    {
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "identifier" || child.kind() == "type_identifier" {
+                if let Ok(text) = child.utf8_text(source) {
+                    match text {
+                        "CustomScrollView" | "SliverAppBar" => {
+                            *screen_layout = "scrollable".to_string();
+                        }
+                        "Stack" => {
+                            *screen_layout = "stack".to_string();
+                            *layout_flow = "none".to_string();
+                        }
+                        "Row" => {
+                            if *layout_flow != "none" {
+                                *layout_flow = "horizontal".to_string();
+                            }
+                        }
+                        "Wrap" => {
+                            if *layout_flow != "none" {
+                                *layout_flow = "wrap".to_string();
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        detect_layouts_from_ast(child, source, screen_layout, layout_flow);
+    }
+}
+
+/// Parses Dart source code and directly extracts elements and layout metadata for the Designer Canvas.
+pub fn parse_dart_to_canvas_data(source_code: &str) -> CanvasSyncResult {
+    let mut layout_flow = "vertical".to_string();
+    let mut screen_layout = "scaffold".to_string();
+
+    let mut parser = Parser::new();
+    let language = tree_sitter_dart::LANGUAGE;
+    if parser.set_language(&language.into()).is_ok() {
+        if let Some(tree) = parser.parse(source_code, None) {
+            let root_node = tree.root_node();
+            let source_bytes = source_code.as_bytes();
+            detect_layouts_from_ast(root_node, source_bytes, &mut screen_layout, &mut layout_flow);
+        }
+    }
+
+    let root_ast = parse_dart_to_widget_tree(source_code);
+    let mut elements = Vec::new();
+
+    if let Some(root) = root_ast {
+        fn collect_elements(node: &WidgetNode, elements: &mut Vec<CanvasWidgetElement>) {
+            let mut el_type = None;
+            let mut label = node
+                .props
+                .get("data")
+                .or_else(|| node.props.get("label"))
+                .or_else(|| node.props.get("labelText"))
+                .or_else(|| node.props.get("childText"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
+            let mut font_size = node
+                .props
+                .get("fontSize")
+                .and_then(|v| v.as_str().and_then(|s| s.parse::<f64>().ok()).or_else(|| v.as_f64()));
+
+            let color = node
+                .props
+                .get("color")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
+            match node.r#type.as_str() {
+                "Text" => {
+                    if label.as_deref() != Some("Diseña tus widgets aquí") {
+                        el_type = Some("text");
+                        if label.is_none() {
+                            label = Some("Texto".to_string());
+                        }
+                    }
+                }
+                "ElevatedButton" | "FilledButton" | "OutlinedButton" => {
+                    el_type = Some("button");
+                    if label.is_none() {
+                        label = Some("Botón".to_string());
+                    }
+                }
+                "TextField" => {
+                    el_type = Some("input");
+                    if label.is_none() {
+                        label = Some("Campo de texto".to_string());
+                    }
+                }
+                "Card" => {
+                    el_type = Some("card");
+                }
+                "Icon" => {
+                    el_type = Some("icon");
+                    if label.is_none() {
+                        label = Some("Icono".to_string());
+                    }
+                    if font_size.is_none() {
+                        font_size = Some(32.0);
+                    }
+                }
+                "Container" => {
+                    el_type = Some("container");
+                }
+                "SizedBox" => {
+                    let has_w = node.props.get("width").is_some();
+                    let has_h = node.props.get("height").is_some();
+                    let has_children = node.children.as_ref().map_or(false, |c| !c.is_empty());
+                    if has_w || has_h || has_children {
+                        el_type = Some("container");
+                    }
+                }
+                _ => {}
+            }
+
+            if let Some(t) = el_type {
+                let count = elements.len();
+                let clean_id = if !node.id.is_empty() {
+                    node.id.clone()
+                } else {
+                    format!("elem-{}", count + 1)
+                };
+                elements.push(CanvasWidgetElement {
+                    id: clean_id,
+                    r#type: t.to_string(),
+                    name: node.r#type.clone(),
+                    label,
+                    x: 24.0,
+                    y: 24.0 + (count as f64) * 60.0,
+                    color,
+                    text_color: None,
+                    font_size,
+                    border_radius: None,
+                });
+            }
+
+            let is_leaf = matches!(
+                node.r#type.as_str(),
+                "Text" | "ElevatedButton" | "FilledButton" | "OutlinedButton" | "TextField" | "Icon"
+            );
+
+            if !is_leaf {
+                if let Some(children) = &node.children {
+                    for child in children {
+                        collect_elements(child, elements);
+                    }
+                }
+            }
+        }
+
+        collect_elements(&root, &mut elements);
+    }
+
+    CanvasSyncResult {
+        elements,
+        layout_flow,
+        screen_layout,
+    }
+}
+
+/// Generates a complete canonical Flutter StatelessWidget screen.
+pub fn generate_flutter_screen_code(
+    class_name: &str,
+    screen_title: &str,
+    layout_type: &str,
+) -> String {
+    match layout_type {
+        "scrollable" => format!(
+r#"import 'package:flutter/material.dart';
+
+class {class_name} extends StatelessWidget {{
+  const {class_name}({{super.key}});
+
+  @override
+  Widget build(BuildContext context) {{
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 180.0,
+            floating: false,
+            pinned: true,
+            flexibleSpace: FlexibleSpaceBar(
+              title: const Text('{screen_title}'),
+              centerTitle: true,
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Contenido con Scroll (Slivers)',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  ...List.generate(
+                    8,
+                    (index) => Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        leading: CircleAvatar(child: Text('${{index + 1}}')),
+                        title: Text('Elemento ${{index + 1}}'),
+                        subtitle: const Text('Desplaza para ver el efecto de la barra superior'),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }}
+}}
+"#),
+        "stack" => format!(
+r#"import 'package:flutter/material.dart';
+
+class {class_name} extends StatelessWidget {{
+  const {class_name}({{super.key}});
+
+  @override
+  Widget build(BuildContext context) {{
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF1E1E2E), Color(0xFF11111B)],
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '{screen_title}',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Pantalla inmersiva construida con Stack y capas superpuestas.',
+                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () {{}},
+                      child: const Text('Comenzar'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }}
+}}
+"#),
+        _ => format!(
+r#"import 'package:flutter/material.dart';
+
+class {class_name} extends StatelessWidget {{
+  const {class_name}({{super.key}});
+
+  @override
+  Widget build(BuildContext context) {{
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text('{screen_title}'),
+        centerTitle: true,
+        elevation: 0,
+      ),
+      body: const SafeArea(
+        child: SizedBox.shrink(),
+      ),
+    );
+  }}
+}}
+"#),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_patch_scaffold_body() {
+        let original = r#"import 'package:flutter/material.dart';
+
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+
+  void customHelper() {
+    print("Keep this intact!");
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(title: const Text('Home')),
+      body: const SafeArea(
+        child: SizedBox.shrink(),
+      ),
+    );
+  }
+}
+"#;
+        let new_body = r#"SafeArea(
+        child: Text('Updated by Vela Engine'),
+      )"#;
+
+        let patched = patch_scaffold_body_in_source(original, new_body).unwrap();
+        assert!(patched.contains("Updated by Vela Engine"));
+        assert!(patched.contains("void customHelper()"));
+        assert!(patched.contains("Keep this intact!"));
+        assert!(patched.contains("backgroundColor: Colors.white"));
+        assert!(patched.contains("appBar: AppBar(title: const Text('Home'))"));
+    }
+
+    #[test]
+    fn test_parse_canvas_data() {
+        let code = r#"
+class DemoScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        children: [
+          Text('Hello Vela'),
+          ElevatedButton(onPressed: () {}, child: Text('Submit')),
+        ],
+      ),
+    );
+  }
+}
+"#;
+        let result = parse_dart_to_canvas_data(code);
+        assert_eq!(result.screen_layout, "scaffold");
+        assert_eq!(result.layout_flow, "vertical");
+        assert_eq!(result.elements.len(), 2);
+        assert_eq!(result.elements[0].r#type, "text");
+        assert_eq!(result.elements[0].label, Some("Hello Vela".to_string()));
+        assert_eq!(result.elements[1].r#type, "button");
+    }
 
     #[test]
     fn test_extract_color_variables() {
@@ -868,5 +1408,6 @@ final theme = ThemeData(
         assert!(code.contains("Color(0xFF6750A4)"));
     }
 }
+
 
 

@@ -32,5 +32,38 @@ export const workspaceApi = {
    */
   async getDirectoryTree(rootPath: string): Promise<any[]> {
     return invoke("get_directory_tree", { path: rootPath });
+  },
+
+  /**
+   * Surgically patches the Scaffold body in a Dart file using Tree-sitter in Rust.
+   */
+  async patchScaffoldBody(filePath: string, bodyCode: string, currentSource?: string): Promise<string> {
+    return invoke("patch_scaffold_body", {
+      filePath,
+      bodyCode,
+      currentSource: currentSource || null,
+    });
+  },
+
+  /**
+   * Parses Dart source code and extracts layout mode and CanvasWidgetElements using Tree-sitter in Rust.
+   */
+  async parseDartFileToCanvas(sourceCode: string): Promise<{
+    elements: any[];
+    layout_flow: string;
+    screen_layout: string;
+  }> {
+    return invoke("parse_dart_file_to_canvas", { sourceCode });
+  },
+
+  /**
+   * Generates clean canonical Dart screen code using Rust.
+   */
+  async generateFlutterScreen(className: string, screenTitle: string, layoutType: string): Promise<string> {
+    return invoke("generate_flutter_screen", {
+      className,
+      screenTitle,
+      layoutType,
+    });
   }
 };
