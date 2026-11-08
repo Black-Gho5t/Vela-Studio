@@ -12,9 +12,7 @@ import {
   RefreshCw,
   Layers,
   Component,
-  PanelTop,
   LayoutDashboard,
-  Shield,
   Rows,
   Type,
   Square,
@@ -751,174 +749,36 @@ class CustomButton extends StatelessWidget {
                           {/* Widget Layer Subtree */}
                           {!isCollapsed && (
                             <div className="ml-3 pl-2.5 border-l border-sidebar-border/60 space-y-0.5 pt-0.5">
-                              {frame.screenLayout === "scrollable" ? (
-                                <>
+                              {/* Screen Root Widget */}
+                              <LayerTreeRow
+                                icon={LayoutDashboard}
+                                name="Scaffold"
+                                tag={frame.screenLayout || "Root"}
+                                onClick={() => onSelectFrameId?.(frame.id)}
+                                isSelected={isSelected && !selectedElementId}
+                              />
+
+                              {/* Primary Layout Container (if declared) */}
+                              {frame.layoutFlow && frame.layoutFlow !== "none" && (
+                                <div className="ml-2.5 pl-2 border-l border-sidebar-border/40 space-y-0.5">
                                   <LayerTreeRow
-                                    icon={LayoutDashboard}
-                                    name="Scaffold"
-                                    tag="Widget"
+                                    icon={Rows}
+                                    name={
+                                      frame.layoutFlow === "horizontal"
+                                        ? "Row"
+                                        : frame.layoutFlow === "wrap"
+                                          ? "Wrap"
+                                          : "Column"
+                                    }
+                                    tag="Layout"
                                     onClick={() => onSelectFrameId?.(frame.id)}
-                                    isSelected={isSelected}
                                   />
-                                  <div className="ml-2.5 pl-2 border-l border-sidebar-border/40 space-y-0.5">
-                                    <LayerTreeRow
-                                      icon={PanelTop}
-                                      name="CustomScrollView"
-                                      tag="Scroll"
-                                      onClick={() => onSelectFrameId?.(frame.id)}
-                                    />
-                                    <div className="ml-2.5 pl-2 border-l border-sidebar-border/40 space-y-0.5">
-                                      <LayerTreeRow
-                                        icon={PanelTop}
-                                        name="SliverAppBar"
-                                        tag="Bar"
-                                        onClick={() => onSelectFrameId?.(frame.id)}
-                                      />
-                                      <LayerTreeRow
-                                        icon={Rows}
-                                        name="SliverToBoxAdapter"
-                                        tag="Adapter"
-                                        onClick={() => onSelectFrameId?.(frame.id)}
-                                      />
-                                      <div className="ml-2.5 pl-2 border-l border-sidebar-border/40 space-y-0.5">
-                                        <LayerTreeRow
-                                          icon={Rows}
-                                          name="Column"
-                                          tag="Layout"
-                                          onClick={() => onSelectFrameId?.(frame.id)}
-                                        />
-                                        <LayerTreeRow
-                                          icon={CreditCard}
-                                          name="Card (List items)"
-                                          tag="Widget"
-                                          onClick={() => onSelectFrameId?.(frame.id)}
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                </>
-                              ) : frame.screenLayout === "stack" ? (
-                                <>
-                                  <LayerTreeRow
-                                    icon={LayoutDashboard}
-                                    name="Scaffold"
-                                    tag="Widget"
-                                    onClick={() => onSelectFrameId?.(frame.id)}
-                                    isSelected={isSelected}
-                                  />
-                                  <div className="ml-2.5 pl-2 border-l border-sidebar-border/40 space-y-0.5">
-                                    <LayerTreeRow
-                                      icon={Layers}
-                                      name="Stack"
-                                      tag="Layout"
-                                      onClick={() => onSelectFrameId?.(frame.id)}
-                                    />
-                                    <div className="ml-2.5 pl-2 border-l border-sidebar-border/40 space-y-0.5">
-                                      <LayerTreeRow
-                                        icon={Square}
-                                        name="Container (Fondo)"
-                                        tag="Decor"
-                                        onClick={() => onSelectFrameId?.(frame.id)}
-                                      />
-                                      <LayerTreeRow
-                                        icon={Shield}
-                                        name="SafeArea"
-                                        tag="Safety"
-                                        onClick={() => onSelectFrameId?.(frame.id)}
-                                      />
-                                      <div className="ml-2.5 pl-2 border-l border-sidebar-border/40 space-y-0.5">
-                                        <LayerTreeRow
-                                          icon={Rows}
-                                          name="Column"
-                                          tag="Layout"
-                                          onClick={() => onSelectFrameId?.(frame.id)}
-                                        />
-                                        <LayerTreeRow
-                                          icon={Type}
-                                          name={`Text ("${frame.name}")`}
-                                          tag="Text"
-                                          onClick={() => onSelectFrameId?.(frame.id)}
-                                        />
-                                        <LayerTreeRow
-                                          icon={MousePointerClick}
-                                          name="FilledButton"
-                                          tag="Button"
-                                          onClick={() => onSelectFrameId?.(frame.id)}
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  <LayerTreeRow
-                                    icon={LayoutDashboard}
-                                    name="Scaffold"
-                                    tag="Widget"
-                                    onClick={() => onSelectFrameId?.(frame.id)}
-                                    isSelected={isSelected}
-                                  />
-                                  <div className="ml-2.5 pl-2 border-l border-sidebar-border/40 space-y-0.5">
-                                    <LayerTreeRow
-                                      icon={PanelTop}
-                                      name="AppBar"
-                                      tag="Bar"
-                                      onClick={() => onSelectFrameId?.(frame.id)}
-                                    />
-                                    <div className="ml-2.5 pl-2 border-l border-sidebar-border/40 space-y-0.5">
-                                      <LayerTreeRow
-                                        icon={Type}
-                                        name={`Text ("${frame.name}")`}
-                                        tag="Text"
-                                        onClick={() => onSelectFrameId?.(frame.id)}
-                                      />
-                                    </div>
-                                    <LayerTreeRow
-                                      icon={Shield}
-                                      name="SafeArea"
-                                      tag="Safety"
-                                      onClick={() => onSelectFrameId?.(frame.id)}
-                                    />
-                                    <div className="ml-2.5 pl-2 border-l border-sidebar-border/40 space-y-0.5">
-                                      <LayerTreeRow
-                                        icon={Rows}
-                                        name={
-                                          frame.layoutFlow === "horizontal"
-                                            ? "Row"
-                                            : frame.layoutFlow === "wrap"
-                                              ? "Wrap"
-                                              : frame.layoutFlow === "none"
-                                                ? "Stack"
-                                                : "Column"
-                                        }
-                                        tag="Layout"
-                                        onClick={() => onSelectFrameId?.(frame.id)}
-                                      />
-                                      <div className="ml-2.5 pl-2 border-l border-sidebar-border/40 space-y-0.5">
-                                        <LayerTreeRow
-                                          icon={Type}
-                                          name={`Text ("${frame.name}")`}
-                                          tag="Text"
-                                          onClick={() => onSelectFrameId?.(frame.id)}
-                                        />
-                                        <LayerTreeRow
-                                          icon={Type}
-                                          name="Text (Subtítulo)"
-                                          tag="Text"
-                                          onClick={() => onSelectFrameId?.(frame.id)}
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                </>
+                                </div>
                               )}
 
-                              {/* Canvas widget elements placed on the frame */}
-                              {frame.elements && frame.elements.length > 0 && (
-                                <div className="pt-1.5 space-y-0.5 border-t border-sidebar-border/30 mt-1">
-                                  <div className="flex items-center justify-between px-1 text-[9px] font-mono tracking-wider uppercase text-muted-foreground/60">
-                                    <span>Elementos ({frame.elements.length})</span>
-                                  </div>
+                              {/* Declared widget elements placed on the frame */}
+                              {frame.elements && frame.elements.length > 0 ? (
+                                <div className="ml-2.5 pl-2 border-l border-sidebar-border/40 space-y-0.5 pt-0.5">
                                   {frame.elements.map((el) => {
                                     const isSelectedEl = el.id === selectedElementId;
                                     return (
@@ -1005,6 +865,10 @@ class CustomButton extends StatelessWidget {
                                       </div>
                                     );
                                   })}
+                                </div>
+                              ) : (
+                                <div className="ml-2.5 pl-2 py-1 text-[10px] text-muted-foreground/50 italic">
+                                  Sin widgets declarados
                                 </div>
                               )}
                             </div>

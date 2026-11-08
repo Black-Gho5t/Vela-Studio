@@ -20,42 +20,41 @@ export function astNodesToCanvasElements(nodes: AstWidgetNode[]): CanvasWidgetEl
 
     switch (node.type) {
       case "Text":
-        if (label === "Diseña tus widgets aquí") return;
+        if (label === "Diseña tus widgets aquí" || label === "No real AST found yet") return;
         elType = "text";
-        label = label || "Texto";
         break;
       case "ElevatedButton":
       case "FilledButton":
       case "OutlinedButton":
+      case "TextButton":
+      case "IconButton":
         elType = "button";
-        label = label || "Botón";
         break;
       case "TextField":
+      case "TextFormField":
         elType = "input";
-        label = label || "Campo de texto";
         break;
       case "Card":
         elType = "card";
-        label = label || "";
         break;
       case "Icon":
         elType = "icon";
-        label = label || "Icono";
         break;
       case "Container":
         elType = "container";
-        label = label || "";
+        break;
+      case "Image":
+        elType = "container";
         break;
       case "SizedBox":
-        // Skip empty SizedBox or SizedBox.shrink()
-        if (!node.props.width && !node.props.height && (!node.children || node.children.length === 0)) {
+        // Skip spacing SizedBox without children
+        if (!node.children || node.children.length === 0) {
           return;
         }
         elType = "container";
-        label = label || "";
         break;
       default:
-        // Layout containers (Column, Row, Stack, Padding, Center) recurse into children
+        // Layout containers (Column, Row, Stack, Padding, Center, ListView, CustomScrollView) recurse into children
         break;
     }
 

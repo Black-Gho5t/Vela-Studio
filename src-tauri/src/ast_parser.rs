@@ -28,8 +28,13 @@ fn walk_node(node: Node, source: &[u8]) -> Option<WidgetNode> {
         for child in node.children(&mut cursor) {
             if child.kind() == "identifier" || child.kind() == "type_identifier" {
                 if let Ok(text) = std::str::from_utf8(&source[child.start_byte()..child.end_byte()]) {
-                    match text {
-                        "Scaffold" | "AppBar" | "Container" | "Column" | "Row" | "Text" | "ElevatedButton" | "Center" | "Padding" | "SizedBox" | "TextField" | "Card" | "Icon" | "Stack" | "SingleChildScrollView" | "FilledButton" | "OutlinedButton" => {
+                    if text.chars().next().map_or(false, |c| c.is_uppercase()) {
+                        let non_widgets = [
+                            "Color", "Colors", "TextStyle", "EdgeInsets", "BoxDecoration",
+                            "BorderRadius", "Key", "MaterialPageRoute", "ThemeData",
+                            "ColorScheme", "Duration", "Offset", "Radius", "State",
+                        ];
+                        if !non_widgets.contains(&text) {
                             text_opt = Some(text.to_string());
                             widget_type = text.to_string();
                             stable_id = format!("{}-{}", text.to_lowercase(), node.start_byte());
@@ -37,7 +42,6 @@ fn walk_node(node: Node, source: &[u8]) -> Option<WidgetNode> {
                             end_b = child.end_byte();
                             break;
                         }
-                        _ => {}
                     }
                 }
             }
@@ -54,7 +58,6 @@ fn walk_node(node: Node, source: &[u8]) -> Option<WidgetNode> {
                     let mut arg_cursor = child.walk();
                     for arg in child.children(&mut arg_cursor) {
                         if arg.kind() == "named_argument" {
-                            // Example: body: Container(...)
                             let mut label_text = String::new();
                             let mut value_node_opt = None;
                             
@@ -69,17 +72,26 @@ fn walk_node(node: Node, source: &[u8]) -> Option<WidgetNode> {
                                 }
                             }
                             
+                            let is_child_prop = matches!(
+                                label_text.as_str(),
+                                "child" | "body" | "appBar" | "title" | "leading" | "trailing" | "bottom" | "floatingActionButton" | "content" | "separator" | "header" | "footer"
+                            );
+                            let is_children_prop = matches!(
+                                label_text.as_str(),
+                                "children" | "slivers" | "actions"
+                            );
+
                             if let Some(val_node) = value_node_opt {
-                                if label_text == "child" || label_text == "body" || label_text == "appBar" {
+                                if is_child_prop {
                                     if let Some(child_widget) = walk_node(val_node, source) {
-                                        if label_text == "child" && text == "ElevatedButton" && child_widget.r#type == "Text" {
+                                        if (label_text == "child" || label_text == "body") && (text.ends_with("Button") || text == "ElevatedButton") && child_widget.r#type == "Text" {
                                             if let Some(data) = child_widget.props.get("data") {
                                                 props.insert("childText".to_string(), data.clone());
                                             }
                                         }
                                         children.push(child_widget);
                                     }
-                                } else if label_text == "children" {
+                                } else if is_children_prop {
                                     // It's a list!
                                     if val_node.kind() == "list_literal" {
                                         let mut elem_cursor = val_node.walk();
@@ -151,25 +163,7 @@ pub fn parse_dart_to_widget_tree(source_code: &str) -> Option<WidgetNode> {
     let root_node = tree.root_node();
     let source_bytes = source_code.as_bytes();
     
-    let parsed_tree = walk_node(root_node, source_bytes);
-    
-    parsed_tree.or_else(|| {
-        Some(WidgetNode {
-            id: "root-0".to_string(),
-            r#type: "Scaffold".to_string(),
-            props: serde_json::json!({ "backgroundColor": "#fafafa" }),
-            start_byte: 0,
-            end_byte: 0,
-            children: Some(vec![WidgetNode {
-                id: "text-0".to_string(),
-                r#type: "Text".to_string(),
-                props: serde_json::json!({ "data": "No real AST found yet", "fontSize": 18 }),
-                start_byte: 0,
-                end_byte: 0,
-                children: None,
-            }]),
-        })
-    })
+    walk_node(root_node, source_bytes)
 }
 
 // Fase 3.5: Bidirectional Code Injection!
@@ -1036,7 +1030,7 @@ pub fn parse_dart_to_canvas_data(source_code: &str) -> CanvasSyncResult {
     if let Some(root) = root_ast {
         fn collect_elements(node: &WidgetNode, elements: &mut Vec<CanvasWidgetElement>) {
             let mut el_type = None;
-            let mut label = node
+            let label = node
                 .props
                 .get("data")
                 .or_else(|| node.props.get("label"))
@@ -1058,33 +1052,23 @@ pub fn parse_dart_to_canvas_data(source_code: &str) -> CanvasSyncResult {
 
             match node.r#type.as_str() {
                 "Text" => {
-                    if label.as_deref() != Some("Diseña tus widgets aquí") {
+                    if label.as_deref() != Some("Diseña tus widgets aquí")
+                        && label.as_deref() != Some("No real AST found yet")
+                    {
                         el_type = Some("text");
-                        if label.is_none() {
-                            label = Some("Texto".to_string());
-                        }
                     }
                 }
-                "ElevatedButton" | "FilledButton" | "OutlinedButton" => {
+                "ElevatedButton" | "FilledButton" | "OutlinedButton" | "TextButton" | "IconButton" => {
                     el_type = Some("button");
-                    if label.is_none() {
-                        label = Some("Botón".to_string());
-                    }
                 }
-                "TextField" => {
+                "TextField" | "TextFormField" => {
                     el_type = Some("input");
-                    if label.is_none() {
-                        label = Some("Campo de texto".to_string());
-                    }
                 }
                 "Card" => {
                     el_type = Some("card");
                 }
                 "Icon" => {
                     el_type = Some("icon");
-                    if label.is_none() {
-                        label = Some("Icono".to_string());
-                    }
                     if font_size.is_none() {
                         font_size = Some(32.0);
                     }
@@ -1092,11 +1076,13 @@ pub fn parse_dart_to_canvas_data(source_code: &str) -> CanvasSyncResult {
                 "Container" => {
                     el_type = Some("container");
                 }
+                "Image" => {
+                    el_type = Some("image");
+                }
                 "SizedBox" => {
-                    let has_w = node.props.get("width").is_some();
-                    let has_h = node.props.get("height").is_some();
+                    // Only treat SizedBox as an element if it has children, NOT when it is just spacing!
                     let has_children = node.children.as_ref().map_or(false, |c| !c.is_empty());
-                    if has_w || has_h || has_children {
+                    if has_children {
                         el_type = Some("container");
                     }
                 }
