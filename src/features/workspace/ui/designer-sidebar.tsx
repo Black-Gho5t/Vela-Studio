@@ -437,7 +437,7 @@ class CustomButton extends StatelessWidget {
         const { workspaceApi } = await import("../api/workspace.api");
         await workspaceApi.saveFile(resolvedPath, buttonCode);
         if (projectPath) {
-          const tree = await workspaceApi.getDirectoryTree(projectPath);
+          const tree = await workspaceApi.getDirectoryChildren(projectPath);
           setFileTree(tree);
         }
       } catch (err) {

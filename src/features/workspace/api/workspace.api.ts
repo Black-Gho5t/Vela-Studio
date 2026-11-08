@@ -35,6 +35,29 @@ export const workspaceApi = {
   },
 
   /**
+   * Fetches only immediate children of a single directory for lazy loading.
+   * @param dirPath The directory to list.
+   */
+  async getDirectoryChildren(dirPath: string): Promise<any[]> {
+    return invoke("get_directory_children", { path: dirPath });
+  },
+
+  /**
+   * Starts native recursive file watching on the workspace directory using Rust notify.
+   */
+  async startWatchingWorkspace(path: string): Promise<void> {
+    return invoke("start_watching_workspace", { path });
+  },
+
+  /**
+   * Stops native file watching on the workspace directory.
+   */
+  async stopWatchingWorkspace(): Promise<void> {
+    return invoke("stop_watching_workspace");
+  },
+
+
+  /**
    * Surgically patches the Scaffold body in a Dart file using Tree-sitter in Rust.
    */
   async patchScaffoldBody(filePath: string, bodyCode: string, currentSource?: string): Promise<string> {

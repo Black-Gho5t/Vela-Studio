@@ -341,7 +341,7 @@ export async function saveFlutterThemeVariables(
       const { workspaceApi } = await import("../api/workspace.api");
       await workspaceApi.saveFile(filePath, dartCode);
 
-      const tree = await workspaceApi.getDirectoryTree(projectPath);
+      const tree = await workspaceApi.getDirectoryChildren(projectPath);
       useWorkspaceStore.getState().setFileTree(tree);
     } catch (err) {
       console.error("Failed to save Flutter colors file:", err);

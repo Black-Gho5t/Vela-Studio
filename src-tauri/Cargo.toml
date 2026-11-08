@@ -28,4 +28,5 @@ portable-pty = "0.8"
 tree-sitter = "0.27.0"
 tree-sitter-dart = "0.2.0"
 uuid = { version = "1.27.0", features = ["v4"] }
+notify = "6.1.1"
 

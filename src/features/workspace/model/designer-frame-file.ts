@@ -243,7 +243,7 @@ export async function updateFlutterFileScreenLayout(
 
     // Refresh directory tree so changes appear in explorer
     if (projectPath) {
-      const tree = await workspaceApi.getDirectoryTree(projectPath);
+      const tree = await workspaceApi.getDirectoryChildren(projectPath);
       setFileTree(tree);
     }
   } catch (err) {
@@ -286,7 +286,7 @@ export async function deleteFlutterFileForFrame(
 
     // Refresh directory tree so file disappears from explorer
     if (projectPath) {
-      const tree = await workspaceApi.getDirectoryTree(projectPath);
+      const tree = await workspaceApi.getDirectoryChildren(projectPath);
       setFileTree(tree);
     }
   } catch (err) {
@@ -335,7 +335,7 @@ export async function createFlutterFileForFrame(
 
     // Refresh directory tree so it appears in explorer
     if (projectPath) {
-      const tree = await workspaceApi.getDirectoryTree(projectPath);
+      const tree = await workspaceApi.getDirectoryChildren(projectPath);
       setFileTree(tree);
     }
   } catch (err) {

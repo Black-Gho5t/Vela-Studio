@@ -32,6 +32,11 @@ struct TerminalState {
     pty_pair: Arc<tokio::sync::Mutex<Option<portable_pty::PtyPair>>>,
 }
 
+struct FsWatcherState {
+    watcher: Arc<tokio::sync::Mutex<Option<notify::RecommendedWatcher>>>,
+}
+
+
 fn resolve_dart_path() -> String {
     if let Some(flutter_bin) = flutter_installer::get_flutter_bin() {
         // If flutter bin is found, dart is usually next to it in bin/cache/dart-sdk/bin
@@ -508,6 +513,157 @@ fn get_directory_tree(path: String) -> Result<Vec<FileNode>, String> {
 }
 
 #[tauri::command]
+fn get_directory_children(path: String) -> Result<Vec<FileNode>, String> {
+    use std::fs;
+    use std::path::Path;
+
+    let expanded_path = if path.starts_with('~') {
+        if let Some(home) = std::env::var("HOME").ok().or_else(|| std::env::var("USERPROFILE").ok()) {
+            path.replacen("~", &home, 1)
+        } else {
+            path.clone()
+        }
+    } else {
+        path.clone()
+    };
+
+    let dir = Path::new(&expanded_path);
+    if !dir.exists() || !dir.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let entries = fs::read_dir(dir).map_err(|e| e.to_string())?;
+    let mut nodes = Vec::new();
+
+    for entry in entries.flatten() {
+        let entry_path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
+
+        if name.starts_with('.') || name == "build" || name == "node_modules" || name == ".dart_tool" {
+            continue;
+        }
+
+        let is_dir = entry_path.is_dir();
+
+        nodes.push(FileNode {
+            id: entry_path.to_string_lossy().to_string(),
+            name,
+            path: entry_path.to_string_lossy().to_string(),
+            node_type: if is_dir {
+                "directory".to_string()
+            } else {
+                "file".to_string()
+            },
+            children: None,
+        });
+    }
+
+    nodes.sort_by(|a, b| {
+        if a.node_type == b.node_type {
+            a.name.to_lowercase().cmp(&b.name.to_lowercase())
+        } else if a.node_type == "directory" {
+            std::cmp::Ordering::Less
+        } else {
+            std::cmp::Ordering::Greater
+        }
+    });
+
+    Ok(nodes)
+}
+
+#[tauri::command]
+async fn start_watching_workspace(
+    app: AppHandle,
+    state: State<'_, FsWatcherState>,
+    path: String,
+) -> Result<(), String> {
+    use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
+
+    let expanded_path = if path.starts_with('~') {
+        if let Some(home) = std::env::var("HOME").ok().or_else(|| std::env::var("USERPROFILE").ok()) {
+            path.replacen("~", &home, 1)
+        } else {
+            path.clone()
+        }
+    } else {
+        path.clone()
+    };
+
+    let watch_path = std::path::PathBuf::from(&expanded_path);
+    if !watch_path.exists() {
+        return Err("Path does not exist".to_string());
+    }
+
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<notify::Event>();
+
+    let mut watcher = RecommendedWatcher::new(
+        move |res: Result<Event, notify::Error>| {
+            if let Ok(event) = res {
+                let _ = tx.send(event);
+            }
+        },
+        Config::default(),
+    )
+    .map_err(|e| format!("Failed to create watcher: {}", e))?;
+
+    watcher
+        .watch(&watch_path, RecursiveMode::Recursive)
+        .map_err(|e| format!("Failed to start watcher: {}", e))?;
+
+    {
+        let mut state_lock = state.watcher.lock().await;
+        *state_lock = Some(watcher);
+    }
+
+    let app_handle = app.clone();
+    tokio::spawn(async move {
+        while let Some(event) = rx.recv().await {
+            let paths: Vec<String> = event
+                .paths
+                .iter()
+                .map(|p| p.to_string_lossy().to_string())
+                .filter(|p| {
+                    !p.contains("/.git/")
+                        && !p.contains("\\.git\\")
+                        && !p.contains("/build/")
+                        && !p.contains("\\build\\")
+                        && !p.contains("/.dart_tool/")
+                        && !p.contains("\\.dart_tool\\")
+                        && !p.contains("/node_modules/")
+                        && !p.contains("\\node_modules\\")
+                })
+                .collect();
+
+            if !paths.is_empty() {
+                let action = match event.kind {
+                    notify::EventKind::Create(_) => "create",
+                    notify::EventKind::Remove(_) => "remove",
+                    _ => "modify",
+                };
+
+                let _ = app_handle.emit(
+                    "workspace-fs-change",
+                    serde_json::json!({
+                        "action": action,
+                        "paths": paths,
+                    }),
+                );
+            }
+        }
+    });
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn stop_watching_workspace(state: State<'_, FsWatcherState>) -> Result<(), String> {
+    let mut state_lock = state.watcher.lock().await;
+    *state_lock = None;
+    Ok(())
+}
+
+
+#[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
@@ -815,12 +971,18 @@ pub fn run() {
             writer: Arc::new(tokio::sync::Mutex::new(None)),
             pty_pair: Arc::new(tokio::sync::Mutex::new(None)),
         })
+        .manage(FsWatcherState {
+            watcher: Arc::new(tokio::sync::Mutex::new(None)),
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             greet,
             create_flutter_project,
             get_directory_tree,
+            get_directory_children,
+            start_watching_workspace,
+            stop_watching_workspace,
             read_file,
             save_file,
             delete_file,

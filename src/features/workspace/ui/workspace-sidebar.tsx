@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { ChevronRight, FolderOpen } from "lucide-react";
 import * as React from "react";
@@ -11,9 +10,6 @@ import {
   ContextMenuGroup,
   ContextMenuItem,
   ContextMenuSeparator,
-  ContextMenuSub,
-  ContextMenuSubContent,
-  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -39,46 +35,79 @@ function TreeNode({
   node: FileNode;
   depth?: number;
 }) {
-  const { id, name, type, children } = node;
+  const { id, name, type } = node;
   const isFolder = type === "directory";
   const [open, setOpen] = React.useState(() => node.isExpanded ?? false);
-  const { addTab, activeTabId } = useWorkspaceStore();
+  const [childrenList, setChildrenList] = React.useState<FileNode[] | null>(() => node.children || null);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const { addTab, activeTabId, projectPath } = useWorkspaceStore();
 
-  const contextMenuItems = isFolder ? (
+  const loadFolderChildren = React.useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const { workspaceApi } = await import("../api/workspace.api");
+      const items = await workspaceApi.getDirectoryChildren(node.path);
+      setChildrenList(items);
+    } catch (err) {
+      console.error("Failed to load folder children:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [node.path]);
+
+  const handleToggle = () => {
+    const nextOpen = !open;
+    setOpen(nextOpen);
+    if (nextOpen && childrenList === null) {
+      loadFolderChildren();
+    }
+  };
+
+  React.useEffect(() => {
+    if (!isFolder || !open) return;
+    let unlisten: (() => void) | null = null;
+    import("@tauri-apps/api/event").then(({ listen }) => {
+      listen<{ action: string; paths: string[] }>("workspace-fs-change", (event) => {
+        const paths = event.payload?.paths || [];
+        const touchesFolder = paths.some((p) => p.startsWith(node.path));
+        if (touchesFolder) {
+          loadFolderChildren();
+        }
+      }).then((unsub) => {
+        unlisten = unsub;
+      });
+    });
+    return () => {
+      unlisten?.();
+    };
+  }, [isFolder, open, node.path, loadFolderChildren]);
+
+  const handleCopyPath = () => {
+    navigator.clipboard.writeText(node.path);
+  };
+
+  const handleCopyRelativePath = () => {
+    const rel = projectPath && node.path.startsWith(projectPath)
+      ? node.path.slice(projectPath.length).replace(/^[/\\]+/, "")
+      : node.path;
+    navigator.clipboard.writeText(rel);
+  };
+
+  const handleRevealInFinder = async () => {
+    try {
+      const { revealItemInDir } = await import("@tauri-apps/plugin-opener");
+      await revealItemInDir(node.path);
+    } catch (e) {
+      console.error("Failed to reveal item in file manager:", e);
+    }
+  };
+
+  const contextMenuItems = (
     <ContextMenuGroup>
-      <ContextMenuItem>New File...</ContextMenuItem>
-      <ContextMenuItem>New Folder...</ContextMenuItem>
+      <ContextMenuItem onClick={handleRevealInFinder}>Reveal in Finder</ContextMenuItem>
       <ContextMenuSeparator />
-      <ContextMenuItem>Reveal in Finder</ContextMenuItem>
-      <ContextMenuItem>Open in Integrated Terminal</ContextMenuItem>
-      <ContextMenuSeparator />
-      <ContextMenuSub>
-        <ContextMenuSubTrigger>Share</ContextMenuSubTrigger>
-        <ContextMenuSubContent>
-          <ContextMenuGroup>
-            <ContextMenuItem>Copy Link</ContextMenuItem>
-            <ContextMenuItem>Share on GitHub</ContextMenuItem>
-          </ContextMenuGroup>
-        </ContextMenuSubContent>
-      </ContextMenuSub>
-      <ContextMenuSeparator />
-      <ContextMenuItem>Add Folder to Workspace...</ContextMenuItem>
-      <ContextMenuItem>Open Folder Settings</ContextMenuItem>
-      <ContextMenuSeparator />
-      <ContextMenuItem>Find in Folder...</ContextMenuItem>
-      <ContextMenuSeparator />
-      <ContextMenuItem>Copy Path</ContextMenuItem>
-      <ContextMenuItem>Copy Relative Path</ContextMenuItem>
-      <ContextMenuSeparator />
-      <ContextMenuItem>Generate Markdown structure</ContextMenuItem>
-    </ContextMenuGroup>
-  ) : (
-    <ContextMenuGroup>
-      <ContextMenuItem>Reveal in Finder</ContextMenuItem>
-      <ContextMenuItem>Open in Integrated Terminal</ContextMenuItem>
-      <ContextMenuSeparator />
-      <ContextMenuItem>Copy Path</ContextMenuItem>
-      <ContextMenuItem>Copy Relative Path</ContextMenuItem>
+      <ContextMenuItem onClick={handleCopyPath}>Copy Path</ContextMenuItem>
+      <ContextMenuItem onClick={handleCopyRelativePath}>Copy Relative Path</ContextMenuItem>
     </ContextMenuGroup>
   );
 
@@ -132,7 +161,7 @@ function TreeNode({
       <ContextMenu>
         <ContextMenuTrigger render={<SidebarMenuItem />}>
           <SidebarMenuButton
-            onClick={() => setOpen((c) => !c)}
+            onClick={handleToggle}
             className="h-7 rounded-md border border-transparent px-2 text-xs tracking-normal transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sidebar-foreground"
             style={{ paddingLeft: `${0.375 + depth * 0.625}rem` }}
             aria-expanded={open}
@@ -147,9 +176,17 @@ function TreeNode({
         <ContextMenuContent>{contextMenuItems}</ContextMenuContent>
       </ContextMenu>
 
-      {open && children ? (
+      {open && (
         <SidebarMenuSub>
-          {children.map((child) => (
+          {isLoading && (
+            <div
+              className="text-[11px] text-muted-foreground/60 py-1"
+              style={{ paddingLeft: `${0.625 + (depth + 1) * 0.625}rem` }}
+            >
+              Cargando...
+            </div>
+          )}
+          {childrenList && childrenList.map((child) => (
             <TreeNode
               key={child.id}
               node={child}
@@ -157,7 +194,7 @@ function TreeNode({
             />
           ))}
         </SidebarMenuSub>
-      ) : null}
+      )}
     </>
   );
 }
@@ -191,15 +228,56 @@ function ExplorerView() {
   const projectName = useWorkspaceStore((state) => state.projectName) || "No Project";
   const projectPath = useWorkspaceStore((state) => state.projectPath);
 
-  React.useEffect(() => {
-    if (projectPath) {
-      invoke<FileNode[]>("get_directory_tree", { path: projectPath })
-        .then((tree) => setFileTree(tree))
-        .catch((e) => console.error("Failed to load directory tree:", e));
-    } else {
+  const loadRootTree = React.useCallback(async () => {
+    if (!projectPath) {
       setFileTree([]);
+      return;
+    }
+    try {
+      const { workspaceApi } = await import("../api/workspace.api");
+      const rootItems = await workspaceApi.getDirectoryChildren(projectPath);
+      setFileTree(rootItems);
+    } catch (e) {
+      console.error("Failed to load root directory children:", e);
     }
   }, [projectPath, setFileTree]);
+
+  React.useEffect(() => {
+    if (!projectPath) {
+      setFileTree([]);
+      return;
+    }
+
+    loadRootTree();
+
+    let unlisten: (() => void) | null = null;
+    import("../api/workspace.api").then(({ workspaceApi }) => {
+      workspaceApi.startWatchingWorkspace(projectPath).catch(console.error);
+    });
+
+    import("@tauri-apps/api/event").then(({ listen }) => {
+      listen<{ action: string; paths: string[] }>("workspace-fs-change", (event) => {
+        const paths = event.payload?.paths || [];
+        const affectsRoot = paths.some((p) => {
+          const parent = p.replace(/[/\\][^/\\]+$/, "");
+          return parent === projectPath || p === projectPath;
+        });
+        if (affectsRoot) {
+          loadRootTree();
+        }
+      }).then((unsub) => {
+        unlisten = unsub;
+      });
+    });
+
+    return () => {
+      unlisten?.();
+      import("../api/workspace.api").then(({ workspaceApi }) => {
+        workspaceApi.stopWatchingWorkspace().catch(() => {});
+      });
+    };
+  }, [projectPath, loadRootTree, setFileTree]);
+
 
   const handleOpenFolder = async () => {
     try {
