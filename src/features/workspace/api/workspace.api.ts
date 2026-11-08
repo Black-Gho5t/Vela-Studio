@@ -23,6 +23,35 @@ export interface GitRepoStatus {
   unstaged: GitStatusFile[];
 }
 
+export interface SearchMatch {
+  line_number: number;
+  line_text: string;
+  match_start: number;
+  match_end: number;
+}
+
+export interface FileSearchResult {
+  file_path: string;
+  relative_path: string;
+  matches: SearchMatch[];
+}
+
+export interface SearchQueryOptions {
+  query: string;
+  match_case: boolean;
+  whole_word: boolean;
+  is_regex: boolean;
+  max_results?: number;
+  file_pattern?: string;
+}
+
+export interface SearchResponse {
+  results: FileSearchResult[];
+  total_matches: number;
+  total_files: number;
+  truncated: boolean;
+}
+
 export const workspaceApi = {
   /**
    * Reads a file from the disk using Tauri IPC.
@@ -153,5 +182,44 @@ export const workspaceApi = {
    */
   async gitCommit(path: string, message: string): Promise<string> {
     return invoke("git_commit", { path, message });
+  },
+
+  /**
+   * High-speed Ripgrep search across workspace files.
+   */
+  async searchWorkspace(path: string, options: SearchQueryOptions): Promise<SearchResponse> {
+    return invoke("search_workspace", { path, options });
+  },
+
+  /**
+   * Replaces occurrences of query with replacement in all matching files.
+   */
+  async replaceInWorkspace(
+    path: string,
+    options: SearchQueryOptions,
+    replacement: string
+  ): Promise<number> {
+    return invoke("replace_in_workspace", { path, options, replacement });
+  },
+
+  /**
+   * Replaces occurrences in a single file.
+   */
+  async replaceInFile(
+    filePath: string,
+    query: string,
+    replacement: string,
+    matchCase: boolean,
+    wholeWord: boolean,
+    isRegex: boolean
+  ): Promise<number> {
+    return invoke("replace_in_file", {
+      filePath,
+      query,
+      replacement,
+      matchCase,
+      wholeWord,
+      isRegex,
+    });
   }
 };

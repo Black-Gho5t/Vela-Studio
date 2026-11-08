@@ -1,6 +1,7 @@
 mod flutter_installer;
 mod ast_parser;
 mod git_engine;
+mod search_engine;
 
 use serde::{Deserialize, Serialize};
 use std::process::Stdio;
@@ -985,6 +986,35 @@ async fn git_commit(path: String, message: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+async fn search_workspace(
+    path: String,
+    options: search_engine::SearchQueryOptions,
+) -> Result<search_engine::SearchResponse, String> {
+    search_engine::search_directory(&path, &options)
+}
+
+#[tauri::command]
+async fn replace_in_workspace(
+    path: String,
+    options: search_engine::SearchQueryOptions,
+    replacement: String,
+) -> Result<usize, String> {
+    search_engine::replace_in_files(&path, &options, &replacement)
+}
+
+#[tauri::command]
+async fn replace_in_file(
+    file_path: String,
+    query: String,
+    replacement: String,
+    match_case: bool,
+    whole_word: bool,
+    is_regex: bool,
+) -> Result<usize, String> {
+    search_engine::replace_in_file(&file_path, &query, &replacement, match_case, whole_word, is_regex)
+}
+
+#[tauri::command]
 fn is_macos() -> bool {
     cfg!(target_os = "macos")
 }
@@ -1029,6 +1059,9 @@ pub fn run() {
             git_unstage_file,
             git_stage_all,
             git_commit,
+            search_workspace,
+            replace_in_workspace,
+            replace_in_file,
             start_terminal,
             write_terminal,
             resize_terminal,
