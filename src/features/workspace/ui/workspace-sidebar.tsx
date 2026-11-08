@@ -1,5 +1,5 @@
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { ChevronRight, FolderOpen } from "lucide-react";
+import { open as openDialog, confirm as confirmDialog } from "@tauri-apps/plugin-dialog";
+import { ChevronRight, FolderOpen, Trash2 } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { FileIcon, FolderMaterialIcon } from "./file-icon";
@@ -90,12 +90,62 @@ function TreeNode({
     }
   };
 
+  const handleDelete = async () => {
+    const isDir = isFolder;
+    const itemType = isDir ? "la carpeta" : "el archivo";
+    const title = isDir ? "Eliminar carpeta" : "Eliminar archivo";
+
+    try {
+      const confirmed = await confirmDialog(
+        `¿Estás seguro de que deseas eliminar ${itemType} "${name}"? Esta acción no se puede deshacer.`,
+        {
+          title,
+          kind: "warning",
+          okLabel: "Eliminar",
+          cancelLabel: "Cancelar",
+        }
+      );
+      if (!confirmed) return;
+
+      const { workspaceApi } = await import("../api/workspace.api");
+      await workspaceApi.deleteFile(node.path);
+
+      // Close open tabs belonging to this item
+      const store = useWorkspaceStore.getState();
+      const normalizedPath = node.path.replace(/\\/g, "/");
+      const tabsToClose = store.tabs.filter((t) => {
+        const p = t.path.replace(/\\/g, "/");
+        return p === normalizedPath || p.startsWith(normalizedPath + "/");
+      });
+      tabsToClose.forEach((t) => store.closeTab(t.id));
+
+      // Refresh file tree reactively
+      store.refreshFileTree();
+    } catch (err) {
+      console.error("Failed to delete item:", err);
+      const { message: messageDialog } = await import("@tauri-apps/plugin-dialog");
+      await messageDialog(`No se pudo eliminar: ${String(err)}`, {
+        title: "Error al eliminar",
+        kind: "error",
+      });
+    }
+  };
+
   const contextMenuItems = (
     <ContextMenuGroup>
       <ContextMenuItem onClick={handleRevealInFinder}>Reveal in Finder</ContextMenuItem>
       <ContextMenuSeparator />
       <ContextMenuItem onClick={handleCopyPath}>Copy Path</ContextMenuItem>
       <ContextMenuItem onClick={handleCopyRelativePath}>Copy Relative Path</ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem
+        variant="destructive"
+        onClick={handleDelete}
+        className="cursor-pointer gap-2"
+      >
+        <Trash2 className="size-3.5" />
+        <span>{isFolder ? "Eliminar carpeta" : "Eliminar archivo"}</span>
+      </ContextMenuItem>
     </ContextMenuGroup>
   );
 
