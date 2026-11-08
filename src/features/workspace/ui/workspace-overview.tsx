@@ -276,6 +276,7 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const content = activeTab?.content ?? DEFAULT_EDITOR_CODE;
+  const isWelcome = activeTab?.id === "welcome" || (!activeTabId && !projectPath);
 
   React.useEffect(() => {
     const state = useWorkspaceStore.getState();
@@ -527,9 +528,21 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
         </div>
       )}
 
-      <div className="flex flex-1 min-h-0 min-w-0 w-full h-full overflow-hidden px-2 pb-2 pt-0.5 gap-2">
-        {/* Editor Content Card with Rounded Corners */}
-        <div className="flex flex-col min-h-0 min-w-0 flex-1 h-full overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs isolate">
+      <div
+        className={cn(
+          "flex flex-1 min-h-0 min-w-0 w-full h-full overflow-hidden",
+          isWelcome ? "p-0 gap-0" : "px-2 pb-2 pt-0.5 gap-2"
+        )}
+      >
+        {/* Editor Content Card with Rounded Corners (borderless on welcome for unified UI) */}
+        <div
+          className={cn(
+            "flex flex-col min-h-0 min-w-0 flex-1 h-full overflow-hidden",
+            isWelcome
+              ? "rounded-none border-0 bg-transparent shadow-none"
+              : "rounded-xl border border-border/80 bg-card text-card-foreground shadow-xs isolate"
+          )}
+        >
           {/* Breadcrumbs / File hierarchy only shown when an active file is open */}
           {activeTab && activeTab.id !== "welcome" && activeTab.id !== "settings" && (
             <div className="flex h-[22px] items-center bg-transparent px-3 text-[11px] text-muted-foreground shrink-0 pt-1">
