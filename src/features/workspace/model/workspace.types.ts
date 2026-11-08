@@ -45,6 +45,16 @@ export interface DetectedScreen {
   elements: CanvasWidgetElement[];
 }
 
+export type BottomPanelTab = "PROBLEMS" | "OUTPUT" | "DEBUG CONSOLE" | "TERMINAL";
+
+export interface ExecutionLogItem {
+  id: string;
+  timestamp: string;
+  message: string;
+  level: "info" | "stdout" | "stderr" | "success" | "progress" | "error";
+  raw?: string;
+}
+
 export interface WorkspaceState {
   projectName: string | null;
   projectPath: string | null;
@@ -61,4 +71,11 @@ export interface WorkspaceState {
   isFlutterWizardOpen?: boolean;
   detectedScreens?: DetectedScreen[];
   isScanningScreens?: boolean;
+  // Bottom Panel & Execution
+  bottomPanelOpen: boolean;
+  activeBottomTab: BottomPanelTab;
+  isAppRunning: boolean;
+  isAppLaunching: boolean;
+  appId: string | null;
+  executionLogs: ExecutionLogItem[];
 }

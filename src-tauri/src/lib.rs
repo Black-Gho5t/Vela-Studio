@@ -27,6 +27,7 @@ struct LspState {
 
 struct FlutterDaemonState {
     stdin: Arc<tokio::sync::Mutex<Option<ChildStdin>>>,
+    child: Arc<tokio::sync::Mutex<Option<tokio::process::Child>>>,
 }
 
 struct TerminalState {
@@ -853,19 +854,47 @@ async fn start_flutter_daemon(
     project_path: String, 
     device_id: Option<String>
 ) -> Result<(), String> {
+    // 1. Kill any existing running process
+    {
+        let mut child_lock = state.child.lock().await;
+        if let Some(mut existing) = child_lock.take() {
+            let _ = existing.kill().await;
+        }
+    }
+    {
+        let mut stdin_lock = state.stdin.lock().await;
+        *stdin_lock = None;
+    }
+
     let flutter_bin = flutter_installer::get_flutter_bin().unwrap_or_else(|| "flutter".to_string());
     
+    // Resolve PATH so Flutter toolchain finds system tools (clang, git, pod, etc.)
+    let current_path = std::env::var("PATH").unwrap_or_default();
+    let flutter_dir = std::path::Path::new(&flutter_bin)
+        .parent()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let extended_path = format!("{}:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin", flutter_dir);
+    let full_path = if current_path.is_empty() {
+        extended_path
+    } else {
+        format!("{}:{}", extended_path, current_path)
+    };
+
     let mut cmd = tokio::process::Command::new(&flutter_bin);
+    cmd.env("PATH", full_path);
     cmd.arg("run").arg("--machine");
     if let Some(id) = device_id {
-        cmd.arg("-d").arg(&id);
+        if !id.is_empty() {
+            cmd.arg("-d").arg(&id);
+        }
     }
     cmd.current_dir(&project_path)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
 
-    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+    let mut child = cmd.spawn().map_err(|e| format!("Error al arrancar Flutter: {}", e))?;
     
     let stdin = child.stdin.take().ok_or("Failed to open stdin")?;
     let stdout = child.stdout.take().ok_or("Failed to open stdout")?;
@@ -875,7 +904,6 @@ async fn start_flutter_daemon(
     *state_stdin = Some(stdin);
     
     let app_handle = app.clone();
-    
     tokio::spawn(async move {
         use tokio::io::AsyncBufReadExt;
         let reader = tokio::io::BufReader::new(stdout);
@@ -883,6 +911,8 @@ async fn start_flutter_daemon(
         while let Ok(Some(line)) = lines.next_line().await {
             let _ = app_handle.emit("flutter-daemon-msg", line);
         }
+        // Emit stop event when stdout closes (process ended)
+        let _ = app_handle.emit("flutter-daemon-msg", r#"[{"event":"app.stop","params":{"reason":"Process ended"}}]"#);
     });
 
     if let Some(stderr) = stderr {
@@ -897,6 +927,48 @@ async fn start_flutter_daemon(
         });
     }
 
+    let mut state_child = state.child.lock().await;
+    *state_child = Some(child);
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn stop_flutter_daemon(
+    app: AppHandle,
+    state: State<'_, FlutterDaemonState>,
+    app_id: Option<String>
+) -> Result<(), String> {
+    // 1. Try graceful stop via stdin
+    {
+        let mut stdin_lock = state.stdin.lock().await;
+        if let Some(stdin) = stdin_lock.as_mut() {
+            let msg = if let Some(id) = app_id.filter(|s| !s.is_empty()) {
+                format!("[{{\"id\":9999,\"method\":\"app.stop\",\"params\":{{\"appId\":\"{}\"}}}}\n", id)
+            } else {
+                "[{\"id\":9999,\"method\":\"app.stop\",\"params\":{}}]\n".to_string()
+            };
+            let _ = stdin.write_all(msg.as_bytes()).await;
+            let _ = stdin.flush().await;
+        }
+    }
+
+    // 2. Kill the process if still alive after brief grace period
+    tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
+    {
+        let mut child_lock = state.child.lock().await;
+        if let Some(mut child) = child_lock.take() {
+            let _ = child.kill().await;
+        }
+    }
+    
+    // 3. Clear stdin
+    {
+        let mut stdin_lock = state.stdin.lock().await;
+        *stdin_lock = None;
+    }
+
+    let _ = app.emit("flutter-daemon-msg", r#"[{"event":"app.stop","params":{"reason":"Stopped by user"}}]"#);
     Ok(())
 }
 
@@ -1148,6 +1220,7 @@ pub fn run() {
         })
         .manage(FlutterDaemonState {
             stdin: Arc::new(tokio::sync::Mutex::new(None)),
+            child: Arc::new(tokio::sync::Mutex::new(None)),
         })
         .manage(TerminalState {
             writer: Arc::new(tokio::sync::Mutex::new(None)),
@@ -1189,6 +1262,7 @@ pub fn run() {
             check_flutter_installation,
             install_flutter_sdk,
             start_flutter_daemon,
+            stop_flutter_daemon,
             send_flutter_daemon_message,
             parse_dart_file,
             inject_widget,

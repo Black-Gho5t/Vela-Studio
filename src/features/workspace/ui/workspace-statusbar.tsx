@@ -6,6 +6,7 @@ import {
   RefreshCw,
   Radio,
   FileCode2,
+  Loader2,
 } from "lucide-react";
 import { useWorkspaceStore } from "../model/workspace.store";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -26,7 +27,13 @@ export function WorkspaceStatusbar({
     cursorPosition,
     workspaceMode,
     projectName,
+    isAppRunning,
+    isAppLaunching,
+    devices,
+    selectedDeviceId,
   } = useWorkspaceStore();
+
+  const selectedDevice = devices.find((d) => d.id === selectedDeviceId);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -137,6 +144,46 @@ export function WorkspaceStatusbar({
             Entorno Flutter listo • Terminal interactiva
           </TooltipContent>
         </Tooltip>
+
+        {/* Live Running / Launching Indicator */}
+        {isAppRunning && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  onClick={() => onSelectBottomTab?.("OUTPUT")}
+                  className="flex items-center gap-1.5 rounded px-2 py-0.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors cursor-pointer"
+                />
+              }
+            >
+              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="truncate font-medium">App en ejecución ({selectedDevice?.name || "Flutter"})</span>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={6}>
+              Clic para ver registros de ejecución
+            </TooltipContent>
+          </Tooltip>
+        )}
+        {isAppLaunching && (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <button
+                  type="button"
+                  onClick={() => onSelectBottomTab?.("OUTPUT")}
+                  className="flex items-center gap-1.5 rounded px-2 py-0.5 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer"
+                />
+              }
+            >
+              <Loader2 className="size-3 animate-spin text-amber-400" />
+              <span className="truncate font-medium">Compilando app...</span>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={6}>
+              Clic para ver registros de compilación
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
 
       {/* ── Right items ── */}

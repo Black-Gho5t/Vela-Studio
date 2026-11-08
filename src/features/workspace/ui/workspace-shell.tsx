@@ -39,7 +39,8 @@ import { DesignerFrameProperties } from "./designer-frame-properties";
 import { createFlutterFileForFrame, debouncedSyncFrameToFile, syncFrameToFile } from "../model/designer-frame-file";
 import { parseDartCodeToFrameElements } from "../model/code-to-canvas-sync";
 import { VelaSetupScreen } from "./vela-setup";
-import { useWorkspaceStore } from "../model/workspace.store";
+import { useWorkspaceStore, setupFlutterDaemonListener } from "../model/workspace.store";
+import { WorkspaceOutputLogs } from "./workspace-output-logs";
 
 // Helper to verify if a Dart file represents a UI screen/widget (excludes themes, colors, models, services)
 function isFlutterScreenFile(fileName?: string, filePath?: string, content?: string): boolean {
@@ -85,9 +86,14 @@ export function WorkspaceShell() {
   const projectPath = useWorkspaceStore((state) => state.projectPath);
   const isFlutterWizardOpen = useWorkspaceStore((state) => state.isFlutterWizardOpen) ?? false;
   const setFlutterWizardOpen = useWorkspaceStore((state) => state.setFlutterWizardOpen);
+  const bottomPanel = useWorkspaceStore((state) => state.bottomPanelOpen);
+  const setBottomPanel = useWorkspaceStore((state) => state.setBottomPanelOpen);
+  const activeBottomTab = useWorkspaceStore((state) => state.activeBottomTab);
+  const setActiveBottomTab = useWorkspaceStore((state) => state.setActiveBottomTab);
+  const isAppRunning = useWorkspaceStore((state) => state.isAppRunning);
+  const isAppLaunching = useWorkspaceStore((state) => state.isAppLaunching);
 
   const [gitBranch, setGitBranch] = React.useState<string | undefined>(undefined);
-  const [activeBottomTab, setActiveBottomTab] = React.useState<"PROBLEMS" | "OUTPUT" | "DEBUG CONSOLE" | "TERMINAL">("TERMINAL");
   const [activeSecondaryView, setActiveSecondaryView] = React.useState<SecondaryRailView>("notifications");
 
   const handleSecondaryViewChange = (view: SecondaryRailView) => {
@@ -123,6 +129,11 @@ export function WorkspaceShell() {
     }
   }, [projectPath]);
 
+  // Setup Flutter background daemon message listener
+  React.useEffect(() => {
+    setupFlutterDaemonListener();
+  }, []);
+
   React.useEffect(() => {
     const fetchDevices = async () => {
       try {
@@ -149,7 +160,6 @@ export function WorkspaceShell() {
 
   const [activeView, setActiveView] = React.useState<"explorer" | "search" | "git">("explorer");
   const [leftPanel, setLeftPanel] = React.useState(true);
-  const [bottomPanel, setBottomPanel] = React.useState(false);
   const [rightPanel, setRightPanel] = React.useState(false);
   const [designerSidebarOpen, setDesignerSidebarOpen] = React.useState(true);
   const [designerRightSidebarOpen, setDesignerRightSidebarOpen] = React.useState(true);
@@ -532,7 +542,7 @@ export function WorkspaceShell() {
           bottomPanel={bottomPanel}
           rightPanel={currentRightPanel}
           onToggleLeft={handleToggleLeft}
-          onToggleBottom={() => setBottomPanel((v) => !v)}
+          onToggleBottom={() => setBottomPanel(!bottomPanel)}
           onToggleRight={handleToggleRight}
           mode={workspaceMode}
           onModeChange={setWorkspaceMode}
@@ -670,6 +680,14 @@ export function WorkspaceShell() {
                                 <tab.icon className={cn("size-3", isActive ? "text-primary" : "opacity-60")} />
                               )}
                               <span>{tab.label}</span>
+                              {tab.id === "OUTPUT" && (isAppRunning || isAppLaunching) && (
+                                <span
+                                  className={cn(
+                                    "size-1.5 rounded-full shrink-0",
+                                    isAppRunning ? "bg-emerald-500 animate-pulse" : "bg-amber-500 animate-pulse"
+                                  )}
+                                />
+                              )}
                               {typeof tab.count === "number" && (
                                 <span
                                   className={cn(
@@ -758,23 +776,8 @@ export function WorkspaceShell() {
                           </span>
                         </div>
                       )}
-                      {activeBottomTab === "OUTPUT" && (
-                        <div className="flex flex-col items-center justify-center h-full text-center p-6 gap-2 select-none">
-                          <FileText className="size-6 text-muted-foreground/40" />
-                          <span className="text-xs font-medium text-foreground">Salida vacía</span>
-                          <span className="text-[11px] text-muted-foreground/60 max-w-xs">
-                            No hay registros ni salida de compilación reciente.
-                          </span>
-                        </div>
-                      )}
-                      {activeBottomTab === "DEBUG CONSOLE" && (
-                        <div className="flex flex-col items-center justify-center h-full text-center p-6 gap-2 select-none">
-                          <Bug className="size-6 text-muted-foreground/40" />
-                          <span className="text-xs font-medium text-foreground">Consola de depuración</span>
-                          <span className="text-[11px] text-muted-foreground/60 max-w-xs">
-                            Inicia una sesión de depuración para evaluar expresiones e inspeccionar registros.
-                          </span>
-                        </div>
+                      {(activeBottomTab === "OUTPUT" || activeBottomTab === "DEBUG CONSOLE") && (
+                        <WorkspaceOutputLogs />
                       )}
                       <div className={cn("h-full w-full", activeBottomTab !== "TERMINAL" && "hidden")}>
                         <WorkspaceTerminal projectPath={projectPath || undefined} />
@@ -930,7 +933,7 @@ export function WorkspaceShell() {
       {/* Status Bar at the bottom of the window */}
       <WorkspaceStatusbar
         gitBranch={gitBranch}
-        onToggleBottom={() => setBottomPanel((v) => !v)}
+        onToggleBottom={() => setBottomPanel(!bottomPanel)}
         onSelectBottomTab={(tab) => {
           setBottomPanel(true);
           setActiveBottomTab(tab);

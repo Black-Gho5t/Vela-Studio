@@ -26,6 +26,7 @@ import {
   RotateCcw,
   Zap,
   FileCode2,
+  Loader2,
 } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
@@ -100,8 +101,12 @@ export function WorkspaceTitlebar({
   const panelState  = { left: leftPanel, bottom: bottomPanel, right: rightPanel };
   const panelToggle = { left: onToggleLeft, bottom: onToggleBottom, right: onToggleRight };
 
-  const [daemonRunning, setDaemonRunning] = React.useState(false);
-  const [appId, setAppId] = React.useState<string | null>(null);
+  const isAppRunning = useWorkspaceStore((s) => s.isAppRunning);
+  const isAppLaunching = useWorkspaceStore((s) => s.isAppLaunching);
+  const startApp = useWorkspaceStore((s) => s.startApp);
+  const stopApp = useWorkspaceStore((s) => s.stopApp);
+  const hotReloadApp = useWorkspaceStore((s) => s.hotReloadApp);
+  const hotRestartApp = useWorkspaceStore((s) => s.hotRestartApp);
 
   const [branches, setBranches] = React.useState<string[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = React.useState(false);
@@ -167,76 +172,6 @@ export function WorkspaceTitlebar({
       b.toLowerCase().includes(branchSearch.toLowerCase().trim())
     );
   }, [branches, branchSearch]);
-
-  React.useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    listen<string>("flutter-daemon-msg", (event) => {
-      try {
-        const raw = JSON.parse(event.payload);
-        const msg = Array.isArray(raw) ? raw[0] : raw;
-        if (!msg) return;
-
-        if (msg.event === "app.start") {
-          setDaemonRunning(true);
-          if (msg.params?.appId) {
-            setAppId(msg.params.appId);
-          }
-        } else if (msg.event === "app.stop") {
-          setDaemonRunning(false);
-          setAppId(null);
-        }
-      } catch (e) {
-        // Not a JSON message, ignore
-      }
-    }).then((f) => {
-      unlisten = f;
-    });
-    return () => unlisten?.();
-  }, []);
-
-  const handlePlay = async () => {
-    if (!projectName || !projectPath) return;
-    try {
-      await invoke("start_flutter_daemon", {
-        projectPath,
-        deviceId: selectedDeviceId,
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleHotReload = async () => {
-    try {
-      await invoke("send_flutter_daemon_message", { 
-        message: JSON.stringify([{ id: Date.now(), method: "app.restart", params: { ...(appId ? { appId } : {}), fullRestart: false } }]) 
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleHotRestart = async () => {
-    try {
-      await invoke("send_flutter_daemon_message", { 
-        message: JSON.stringify([{ id: Date.now(), method: "app.restart", params: { ...(appId ? { appId } : {}), fullRestart: true } }]) 
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleStop = async () => {
-    try {
-      await invoke("send_flutter_daemon_message", { 
-        message: JSON.stringify([{ id: Date.now(), method: "app.stop", params: { ...(appId ? { appId } : {}) } }]) 
-      });
-      setDaemonRunning(false);
-      setAppId(null);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const initials = user.name
     .split(" ")
@@ -556,11 +491,13 @@ export function WorkspaceTitlebar({
                 <span
                   className={cn(
                     "size-1.5 rounded-full shrink-0 transition-colors",
-                    daemonRunning
+                    isAppRunning
                       ? "bg-emerald-500 animate-pulse ring-2 ring-emerald-500/20"
-                      : selectedDevice
-                      ? "bg-emerald-500"
-                      : "bg-muted-foreground/40"
+                      : isAppLaunching
+                        ? "bg-amber-500 animate-pulse ring-2 ring-amber-500/20"
+                        : selectedDevice
+                          ? "bg-emerald-500"
+                          : "bg-muted-foreground/40"
                   )}
                 />
                 <span className="truncate max-w-[110px]">
@@ -626,12 +563,12 @@ export function WorkspaceTitlebar({
 
             {/* Action Buttons: Run/Stop, Debug, Hot Reload, Hot Restart, More */}
             <div className="flex items-center gap-0.5">
-              {daemonRunning ? (
+              {isAppRunning ? (
                 <Tooltip>
                   <TooltipTrigger
                     render={
                       <Button
-                        onClick={handleStop}
+                        onClick={stopApp}
                         variant="ghost"
                         size="icon"
                         className="size-6.5 text-destructive hover:bg-destructive/15 cursor-pointer"
@@ -640,14 +577,30 @@ export function WorkspaceTitlebar({
                   >
                     <Square className="size-3 fill-current" />
                   </TooltipTrigger>
-                  <TooltipContent side="bottom" sideOffset={6}>Stop</TooltipContent>
+                  <TooltipContent side="bottom" sideOffset={6}>Detener aplicación (Stop)</TooltipContent>
+                </Tooltip>
+              ) : isAppLaunching ? (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        onClick={stopApp}
+                        variant="ghost"
+                        size="icon"
+                        className="size-6.5 text-amber-500 hover:text-amber-400 hover:bg-amber-500/15 cursor-pointer"
+                      />
+                    }
+                  >
+                    <Loader2 className="size-3 animate-spin text-amber-500" />
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={6}>Compilando y arrancando... (clic para cancelar)</TooltipContent>
                 </Tooltip>
               ) : (
                 <Tooltip>
                   <TooltipTrigger
                     render={
                       <Button
-                        onClick={handlePlay}
+                        onClick={() => startApp()}
                         variant="ghost"
                         size="icon"
                         className="size-6.5 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/15 cursor-pointer"
@@ -656,7 +609,7 @@ export function WorkspaceTitlebar({
                   >
                     <Play className="size-3 fill-current" />
                   </TooltipTrigger>
-                  <TooltipContent side="bottom" sideOffset={6}>Run (main.dart)</TooltipContent>
+                  <TooltipContent side="bottom" sideOffset={6}>Ejecutar (main.dart)</TooltipContent>
                 </Tooltip>
               )}
 
@@ -679,8 +632,8 @@ export function WorkspaceTitlebar({
                 <TooltipTrigger
                   render={
                     <Button
-                      onClick={handleHotReload}
-                      disabled={!daemonRunning}
+                      onClick={hotReloadApp}
+                      disabled={!isAppRunning}
                       variant="ghost"
                       size="icon"
                       className="size-6.5 text-amber-500 hover:text-amber-400 hover:bg-amber-500/15 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
@@ -696,8 +649,8 @@ export function WorkspaceTitlebar({
                 <TooltipTrigger
                   render={
                     <Button
-                      onClick={handleHotRestart}
-                      disabled={!daemonRunning}
+                      onClick={hotRestartApp}
+                      disabled={!isAppRunning}
                       variant="ghost"
                       size="icon"
                       className="size-6.5 text-primary hover:bg-primary/15 disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
