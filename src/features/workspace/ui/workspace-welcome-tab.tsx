@@ -50,9 +50,11 @@ export function WorkspaceWelcomeTab({ onSwitchView }: WorkspaceWelcomeTabProps) 
       });
       if (selected && typeof selected === "string") {
         const name = selected.split(/[/\\]/).pop() || "unknown-project";
-        useWorkspaceStore.getState().setProjectName(name);
-        useWorkspaceStore.getState().setProjectPath(selected);
-        useWorkspaceStore.getState().addRecentProject({ name, path: selected });
+        const store = useWorkspaceStore.getState();
+        store.setProjectName(name);
+        store.setProjectPath(selected);
+        store.addRecentProject({ name, path: selected });
+        store.closeTab("welcome");
       }
     } catch (e) {
       console.error("Failed to open folder:", e);
@@ -60,9 +62,11 @@ export function WorkspaceWelcomeTab({ onSwitchView }: WorkspaceWelcomeTabProps) 
   };
 
   const handleOpenRecent = (name: string, path: string) => {
-    useWorkspaceStore.getState().setProjectName(name);
-    useWorkspaceStore.getState().setProjectPath(path);
-    useWorkspaceStore.getState().addRecentProject({ name, path });
+    const store = useWorkspaceStore.getState();
+    store.setProjectName(name);
+    store.setProjectPath(path);
+    store.addRecentProject({ name, path });
+    store.closeTab("welcome");
   };
 
   const handleNewFile = () => {

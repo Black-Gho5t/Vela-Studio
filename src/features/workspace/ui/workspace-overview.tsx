@@ -1,7 +1,6 @@
 import Editor from "@monaco-editor/react";
-import { FileCode, X, Layout, FolderOpen, Settings2, Smartphone } from "lucide-react";
+import { FileCode, X, Layout, Settings2 } from "lucide-react";
 import * as React from "react";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { FileIcon } from "./file-icon";
 import { ResizableSidebar } from "@/components/ui/ide-resizable";
 import { WorkspaceWelcomeTab } from "./workspace-welcome-tab";
@@ -230,7 +229,7 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
     setActiveTab,
     closeTab,
     updateTabContent,
-    projectName,
+    projectPath,
     workspaceMode,
   } = useWorkspaceStore();
   const { theme } = useTheme();
@@ -434,22 +433,6 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
     return () => ro.disconnect();
   }, []);
 
-  const handleOpenFolder = async () => {
-    try {
-      const selected = await openDialog({
-        directory: true,
-        multiple: false,
-      });
-      if (selected && typeof selected === "string") {
-        const name = selected.split(/[/\\]/).pop() || "unknown-project";
-        useWorkspaceStore.getState().setProjectName(name);
-        useWorkspaceStore.getState().setProjectPath(selected);
-      }
-    } catch (e) {
-      console.error("Failed to open folder:", e);
-    }
-  };
-
   return (
     <div className="flex h-full w-full flex-1 flex-col overflow-hidden bg-background">
       {/* Editor Tabs - only rendered when tabs are open, without harsh dividing borders */}
@@ -619,64 +602,22 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
                     }
                   />
                 )
+              ) : !projectPath ? (
+                <WorkspaceWelcomeTab onSwitchView={onSwitchView} />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-transparent">
                   <Empty className="border-none max-w-sm">
                     <EmptyHeader>
                       <EmptyMedia variant="icon">
-                        {projectName ? (
-                          <FileCode className="size-5 text-muted-foreground" />
-                        ) : (
-                          <Smartphone className="size-5 text-primary" />
-                        )}
+                        <FileCode className="size-5 text-muted-foreground" />
                       </EmptyMedia>
                       <EmptyTitle className="text-sm">
-                        {projectName ? "No file selected" : "No folder opened"}
+                        No file selected
                       </EmptyTitle>
                       <EmptyDescription className="text-xs text-muted-foreground">
-                        {projectName
-                          ? "Select a file from the explorer to view and edit code."
-                          : "Create a new Flutter project with the wizard or open an existing folder to start building."}
+                        Select a file from the explorer to view and edit code.
                       </EmptyDescription>
                     </EmptyHeader>
-                    {!projectName && (
-                      <div className="mt-4 flex flex-col items-center gap-2 w-full max-w-xs">
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => useWorkspaceStore.getState().setFlutterWizardOpen(true)}
-                          className="w-full text-xs font-medium gap-2 shadow-xs cursor-pointer"
-                        >
-                          <Smartphone className="size-3.5" />
-                          <span>Nuevo proyecto Flutter</span>
-                        </Button>
-                        <div className="flex items-center gap-2 w-full">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleOpenFolder}
-                            className="flex-1 text-xs gap-1.5 cursor-pointer"
-                          >
-                            <FolderOpen className="size-3.5" />
-                            <span>Abrir carpeta</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => useWorkspaceStore.getState().openWelcomeTab()}
-                            className="text-xs text-muted-foreground hover:text-foreground cursor-pointer px-2"
-                            title="Abrir página de bienvenida"
-                          >
-                            <img
-                              src="/app-logo.png"
-                              alt="Vela"
-                              className="size-3.5 mr-1 object-contain shrink-0"
-                            />
-                            <span>Bienvenida</span>
-                          </Button>
-                        </div>
-                      </div>
-                    )}
                   </Empty>
                 </div>
               )}

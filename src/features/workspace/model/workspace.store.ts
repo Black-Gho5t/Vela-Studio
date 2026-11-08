@@ -131,11 +131,19 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
           }).catch(() => {});
         });
 
+        const welcomeTab: WorkspaceTab = {
+          id: "welcome",
+          name: "Welcome",
+          path: "welcome",
+          isActive: true,
+          isModified: false,
+        };
+
         set({
           projectName: null,
           projectPath: null,
-          tabs: [],
-          activeTabId: null,
+          tabs: [welcomeTab],
+          activeTabId: "welcome",
           fileTree: [],
           treeRevision: 0,
           workspaceMode: "editor",
