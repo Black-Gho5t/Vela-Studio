@@ -238,9 +238,50 @@ async fn start_terminal(
     let mut state_pair = state.pty_pair.lock().await;
     *state_pair = Some(pty_pair);
 
-    let app_handle = app.clone();
     let pty_pair_clone = state.pty_pair.clone();
     let writer_clone = state.writer.clone();
+
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
+    let app_handle_emit = app.clone();
+
+    // Throttled IPC emitter at max 60 Hz (~16ms) to avoid saturating UI thread during high-output commands
+    tokio::spawn(async move {
+        let mut accumulator = Vec::new();
+        let mut interval = tokio::time::interval(std::time::Duration::from_millis(16));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+        loop {
+            tokio::select! {
+                maybe_chunk = rx.recv() => {
+                    match maybe_chunk {
+                        Some(chunk) => {
+                            accumulator.extend_from_slice(&chunk);
+                            // If buffer exceeds 64KB, flush immediately to avoid latency spikes
+                            if accumulator.len() >= 64 * 1024 {
+                                let text = String::from_utf8_lossy(&accumulator).to_string();
+                                accumulator.clear();
+                                let _ = app_handle_emit.emit("terminal-stdout", text);
+                            }
+                        }
+                        None => {
+                            if !accumulator.is_empty() {
+                                let text = String::from_utf8_lossy(&accumulator).to_string();
+                                let _ = app_handle_emit.emit("terminal-stdout", text);
+                            }
+                            break;
+                        }
+                    }
+                }
+                _ = interval.tick() => {
+                    if !accumulator.is_empty() {
+                        let text = String::from_utf8_lossy(&accumulator).to_string();
+                        accumulator.clear();
+                        let _ = app_handle_emit.emit("terminal-stdout", text);
+                    }
+                }
+            }
+        }
+    });
 
     tokio::task::spawn_blocking(move || {
         let mut reader = reader;
@@ -249,9 +290,11 @@ async fn start_terminal(
             if n == 0 {
                 break;
             }
-            let text = String::from_utf8_lossy(&buffer[..n]).to_string();
-            let _ = app_handle.emit("terminal-stdout", text);
+            if tx.send(buffer[..n].to_vec()).is_err() {
+                break;
+            }
         }
+        drop(tx);
         if let Ok(mut pair) = pty_pair_clone.try_lock() {
             *pair = None;
         }

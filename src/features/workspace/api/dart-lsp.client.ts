@@ -116,6 +116,49 @@ class LightLspClient {
 let lspClient: LightLspClient | null = null;
 let providerRegistered = false;
 
+// Per-model debouncing buffer for didChange notifications (coalesces rapid typing bursts)
+const changeTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function debouncedDidChange(model: any) {
+  const uri = model.uri.toString();
+  const existing = changeTimers.get(uri);
+  if (existing) {
+    clearTimeout(existing);
+  }
+
+  const timer = setTimeout(() => {
+    changeTimers.delete(uri);
+    if (!model.isDisposed()) {
+      lspClient?.sendNotification("textDocument/didChange", {
+        textDocument: {
+          uri,
+          version: model.getVersionId(),
+        },
+        contentChanges: [{ text: model.getValue() }],
+      });
+    }
+  }, 35); // 35ms buffer (~2 frames) to coalesce rapid typing bursts
+  changeTimers.set(uri, timer);
+}
+
+function flushPendingChange(model: any) {
+  const uri = model.uri.toString();
+  const timer = changeTimers.get(uri);
+  if (timer) {
+    clearTimeout(timer);
+    changeTimers.delete(uri);
+    if (!model.isDisposed()) {
+      lspClient?.sendNotification("textDocument/didChange", {
+        textDocument: {
+          uri,
+          version: model.getVersionId(),
+        },
+        contentChanges: [{ text: model.getValue() }],
+      });
+    }
+  }
+}
+
 export async function initDartLsp(monaco: any) {
   console.log("🚀 Initializing Dart LSP (Lightweight Mode)...");
 
@@ -169,13 +212,7 @@ export async function initDartLsp(monaco: any) {
       });
       
       model.onDidChangeContent(() => {
-        lspClient?.sendNotification("textDocument/didChange", {
-          textDocument: {
-            uri: model.uri.toString(),
-            version: model.getVersionId(),
-          },
-          contentChanges: [{ text: model.getValue() }]
-        });
+        debouncedDidChange(model);
       });
     }
   });
@@ -193,22 +230,23 @@ export async function initDartLsp(monaco: any) {
       });
 
       model.onDidChangeContent(() => {
-        lspClient?.sendNotification("textDocument/didChange", {
-          textDocument: {
-            uri: model.uri.toString(),
-            version: model.getVersionId(),
-          },
-          contentChanges: [{ text: model.getValue() }]
-        });
+        debouncedDidChange(model);
       });
     }
   });
 
   // Listen for model disposals
   monaco.editor.onWillDisposeModel((model: any) => {
+    const uri = model.uri.toString();
+    const timer = changeTimers.get(uri);
+    if (timer) {
+      clearTimeout(timer);
+      changeTimers.delete(uri);
+    }
+
     if (model.getLanguageId() === 'dart') {
       lspClient?.sendNotification("textDocument/didClose", {
-        textDocument: { uri: model.uri.toString() }
+        textDocument: { uri }
       });
     }
   });
@@ -221,6 +259,7 @@ export async function initDartLsp(monaco: any) {
       triggerCharacters: [".", ":", " "],
       provideCompletionItems: async (model: any, position: any) => {
         if (!lspClient) return null;
+        flushPendingChange(model);
         try {
           const res = await lspClient.sendRequest("textDocument/completion", {
             textDocument: { uri: model.uri.toString() },
@@ -254,6 +293,7 @@ export async function initDartLsp(monaco: any) {
     monaco.languages.registerHoverProvider("dart", {
       provideHover: async (model: any, position: any) => {
         if (!lspClient) return null;
+        flushPendingChange(model);
         try {
           const res = await lspClient.sendRequest("textDocument/hover", {
             textDocument: { uri: model.uri.toString() },
@@ -277,6 +317,7 @@ export async function initDartLsp(monaco: any) {
     monaco.languages.registerDefinitionProvider("dart", {
       provideDefinition: async (model: any, position: any) => {
         if (!lspClient) return null;
+        flushPendingChange(model);
         try {
           const res = await lspClient.sendRequest("textDocument/definition", {
             textDocument: { uri: model.uri.toString() },
