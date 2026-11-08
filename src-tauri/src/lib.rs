@@ -1,5 +1,6 @@
 mod flutter_installer;
 mod ast_parser;
+mod git_engine;
 
 use serde::{Deserialize, Serialize};
 use std::process::Stdio;
@@ -954,6 +955,36 @@ async fn generate_flutter_screen(
 }
 
 #[tauri::command]
+async fn get_git_status(path: String) -> Result<git_engine::GitRepoStatus, String> {
+    git_engine::get_repo_status(&path)
+}
+
+#[tauri::command]
+async fn get_git_log(path: String, limit: Option<usize>) -> Result<Vec<git_engine::GitCommitItem>, String> {
+    git_engine::get_repo_log(&path, limit.unwrap_or(30))
+}
+
+#[tauri::command]
+async fn git_stage_file(path: String, file_path: String) -> Result<(), String> {
+    git_engine::stage_file(&path, &file_path)
+}
+
+#[tauri::command]
+async fn git_unstage_file(path: String, file_path: String) -> Result<(), String> {
+    git_engine::unstage_file(&path, &file_path)
+}
+
+#[tauri::command]
+async fn git_stage_all(path: String) -> Result<(), String> {
+    git_engine::stage_all(&path)
+}
+
+#[tauri::command]
+async fn git_commit(path: String, message: String) -> Result<String, String> {
+    git_engine::commit(&path, &message)
+}
+
+#[tauri::command]
 fn is_macos() -> bool {
     cfg!(target_os = "macos")
 }
@@ -992,6 +1023,12 @@ pub fn run() {
             get_git_branch,
             get_git_branches,
             switch_git_branch,
+            get_git_status,
+            get_git_log,
+            git_stage_file,
+            git_unstage_file,
+            git_stage_all,
+            git_commit,
             start_terminal,
             write_terminal,
             resize_terminal,

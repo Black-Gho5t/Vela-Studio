@@ -1,5 +1,28 @@
 import { invoke } from "@tauri-apps/api/core";
 
+export interface GitStatusFile {
+  path: string;
+  status: string;
+  staged: boolean;
+}
+
+export interface GitCommitInfo {
+  id: string;
+  short_id: string;
+  author_name: string;
+  author_email: string;
+  timestamp: number;
+  relative_date: string;
+  message: string;
+}
+
+export interface GitRepoStatus {
+  branch: string;
+  is_repo: boolean;
+  staged: GitStatusFile[];
+  unstaged: GitStatusFile[];
+}
+
 export const workspaceApi = {
   /**
    * Reads a file from the disk using Tauri IPC.
@@ -88,5 +111,47 @@ export const workspaceApi = {
       screenTitle,
       layoutType,
     });
+  },
+
+  /**
+   * Retrieves real Git repository status (staged and unstaged files).
+   */
+  async getGitStatus(path: string): Promise<GitRepoStatus> {
+    return invoke("get_git_status", { path });
+  },
+
+  /**
+   * Retrieves commit history log for the repository.
+   */
+  async getGitLog(path: string, limit = 30): Promise<GitCommitInfo[]> {
+    return invoke("get_git_log", { path, limit });
+  },
+
+  /**
+   * Stages a single file.
+   */
+  async gitStageFile(path: string, filePath: string): Promise<void> {
+    return invoke("git_stage_file", { path, filePath });
+  },
+
+  /**
+   * Unstages a single file.
+   */
+  async gitUnstageFile(path: string, filePath: string): Promise<void> {
+    return invoke("git_unstage_file", { path, filePath });
+  },
+
+  /**
+   * Stages all changes in the repository.
+   */
+  async gitStageAll(path: string): Promise<void> {
+    return invoke("git_stage_all", { path });
+  },
+
+  /**
+   * Commits staged (or all) changes with a commit message.
+   */
+  async gitCommit(path: string, message: string): Promise<string> {
+    return invoke("git_commit", { path, message });
   }
 };
