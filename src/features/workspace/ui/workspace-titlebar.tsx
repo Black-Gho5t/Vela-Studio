@@ -18,6 +18,8 @@ import {
   Layout,
   Code2,
   FolderOpen,
+  FolderX,
+  Smartphone,
   User,
   Users,
   HelpCircle,
@@ -255,11 +257,59 @@ export function WorkspaceTitlebar({
         const name = selected.split(/[/\\]/).pop() || "unknown-project";
         useWorkspaceStore.getState().setProjectName(name);
         useWorkspaceStore.getState().setProjectPath(selected);
+        useWorkspaceStore.getState().addRecentProject({ name, path: selected });
       }
     } catch (e) {
       console.error("Failed to open folder:", e);
     }
   };
+
+  const handleNewFile = () => {
+    const newTabId = `untitled-${Date.now()}`;
+    useWorkspaceStore.getState().addTab({
+      id: newTabId,
+      name: "untitled.dart",
+      path: "untitled.dart",
+      content:
+        "// New Dart File\nimport 'package:flutter/material.dart';\n\nvoid main() {\n  runApp(const MyApp());\n}\n\nclass MyApp extends StatelessWidget {\n  const MyApp({super.key});\n\n  @override\n  Widget build(BuildContext context) {\n    return const MaterialApp(\n      home: Scaffold(\n        body: Center(\n          child: Text('Hello, Vela!'),\n        ),\n      ),\n    );\n  }\n}\n",
+      isActive: true,
+      isModified: true,
+    });
+  };
+
+  const handleCloseFolder = () => {
+    useWorkspaceStore.getState().closeFolder();
+  };
+
+  React.useEffect(() => {
+    let unlistenClose: (() => void) | null = null;
+    let unlistenOpen: (() => void) | null = null;
+    let unlistenNew: (() => void) | null = null;
+
+    listen("menu-close-folder", () => {
+      useWorkspaceStore.getState().closeFolder();
+    }).then((u) => {
+      unlistenClose = u;
+    });
+
+    listen("menu-open-folder", () => {
+      handleOpenFolder();
+    }).then((u) => {
+      unlistenOpen = u;
+    });
+
+    listen("menu-new-project", () => {
+      useWorkspaceStore.getState().setFlutterWizardOpen(true);
+    }).then((u) => {
+      unlistenNew = u;
+    });
+
+    return () => {
+      unlistenClose?.();
+      unlistenOpen?.();
+      unlistenNew?.();
+    };
+  }, []);
 
   return (
     <header
@@ -303,6 +353,60 @@ export function WorkspaceTitlebar({
             </TabsTrigger>
           </TabsList>
         </Tabs>
+
+        {/* File Menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <button
+                type="button"
+                className="flex items-center gap-1 h-6 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors cursor-pointer select-none outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <span>File</span>
+                <ChevronDown className="size-2.5 opacity-50 shrink-0" />
+              </button>
+            }
+          />
+          <DropdownMenuContent align="start" sideOffset={6} className="w-56 p-1 text-xs">
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => useWorkspaceStore.getState().setFlutterWizardOpen(true)}
+                className="cursor-pointer gap-2"
+              >
+                <Smartphone className="size-3.5 text-primary" />
+                <span>New Flutter Project…</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleNewFile}
+                className="cursor-pointer gap-2"
+              >
+                <FileCode2 className="size-3.5 text-muted-foreground" />
+                <span>New File</span>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={handleOpenFolder}
+                className="cursor-pointer gap-2"
+              >
+                <FolderOpen className="size-3.5 text-muted-foreground" />
+                <span>Open Folder…</span>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                disabled={!projectPath}
+                onClick={handleCloseFolder}
+                className="cursor-pointer gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
+              >
+                <FolderX className="size-3.5" />
+                <span>Close Folder</span>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {projectName ? (
           <>

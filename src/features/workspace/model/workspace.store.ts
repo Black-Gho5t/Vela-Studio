@@ -38,6 +38,9 @@ interface WorkspaceActions {
 
   // Flutter Wizard
   setFlutterWizardOpen: (open: boolean) => void;
+
+  // Folder / Project
+  closeFolder: () => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
@@ -118,6 +121,27 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       setWorkspaceMode: (mode) => set({ workspaceMode: mode }),
       setProjectName: (name) => set({ projectName: name }),
       setProjectPath: (path) => set({ projectPath: path }),
+      closeFolder: () => {
+        import("../api/workspace.api").then(({ workspaceApi }) => {
+          workspaceApi.stopWatchingWorkspace().catch(() => {});
+        });
+        import("@tauri-apps/api/core").then(({ invoke }) => {
+          invoke("send_flutter_daemon_message", {
+            message: JSON.stringify([{ id: Date.now(), method: "app.stop", params: {} }]),
+          }).catch(() => {});
+        });
+
+        set({
+          projectName: null,
+          projectPath: null,
+          tabs: [],
+          activeTabId: null,
+          fileTree: [],
+          treeRevision: 0,
+          workspaceMode: "editor",
+          cursorPosition: { line: 1, column: 1 },
+        });
+      },
       addTab: (tab) =>
         set((state) => {
           const existing = state.tabs.find((t) => t.id === tab.id);

@@ -161,6 +161,15 @@ export function WorkspaceShell() {
   const [selectedElementId, setSelectedElementId] = React.useState<string>("");
   const selectedFrame = designerFrames.find((f) => f.id === selectedFrameId);
 
+  // Clean up designer state when project/folder is closed
+  React.useEffect(() => {
+    if (!projectPath) {
+      setDesignerFrames([]);
+      setSelectedFrameId("");
+      setSelectedElementId("");
+    }
+  }, [projectPath]);
+
   const handleUpdateFrame = (updatedFrame: CanvasDeviceFrame) => {
     setDesignerFrames((prev) =>
       prev.map((f) => (f.id === updatedFrame.id ? updatedFrame : f))

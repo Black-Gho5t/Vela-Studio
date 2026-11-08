@@ -1062,9 +1062,80 @@ fn is_macos() -> bool {
     cfg!(target_os = "macos")
 }
 
+use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            let close_folder_item = MenuItemBuilder::with_id("close-folder", "Close Folder")
+                .accelerator("CmdOrCtrl+Shift+W")
+                .build(app)?;
+
+            let open_folder_item = MenuItemBuilder::with_id("open-folder", "Open Folder…")
+                .accelerator("CmdOrCtrl+O")
+                .build(app)?;
+
+            let new_project_item = MenuItemBuilder::with_id("new-project", "New Flutter Project…")
+                .accelerator("CmdOrCtrl+Shift+N")
+                .build(app)?;
+
+            let file_submenu = SubmenuBuilder::new(app, "File")
+                .item(&new_project_item)
+                .item(&open_folder_item)
+                .separator()
+                .item(&close_folder_item)
+                .separator()
+                .close_window()
+                .build()?;
+
+            let edit_submenu = SubmenuBuilder::new(app, "Edit")
+                .undo()
+                .redo()
+                .separator()
+                .cut()
+                .copy()
+                .paste()
+                .select_all()
+                .build()?;
+
+            let mut menu_builder = MenuBuilder::new(app);
+
+            #[cfg(target_os = "macos")]
+            {
+                let app_submenu = SubmenuBuilder::new(app, "Vela")
+                    .about(None)
+                    .separator()
+                    .services()
+                    .separator()
+                    .hide()
+                    .hide_others()
+                    .show_all()
+                    .separator()
+                    .quit()
+                    .build()?;
+                menu_builder = menu_builder.item(&app_submenu);
+            }
+
+            let menu = menu_builder
+                .item(&file_submenu)
+                .item(&edit_submenu)
+                .build()?;
+
+            let _ = app.set_menu(menu);
+
+            app.on_menu_event(move |app_handle, event| {
+                if event.id() == "close-folder" {
+                    let _ = app_handle.emit("menu-close-folder", ());
+                } else if event.id() == "open-folder" {
+                    let _ = app_handle.emit("menu-open-folder", ());
+                } else if event.id() == "new-project" {
+                    let _ = app_handle.emit("menu-new-project", ());
+                }
+            });
+
+            Ok(())
+        })
         .manage(LspState {
             stdin: Arc::new(tokio::sync::Mutex::new(None)),
         })
