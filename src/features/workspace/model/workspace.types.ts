@@ -1,3 +1,5 @@
+import type { CanvasWidgetElement, LayoutFlow, ScreenLayoutType } from "../ui/designer-canvas";
+
 export interface FileNode {
   id: string;
   name: string;
@@ -30,6 +32,19 @@ export interface CursorPosition {
   column: number;
 }
 
+export interface DetectedScreen {
+  id: string;
+  name: string;
+  className: string;
+  fileName: string;
+  filePath: string;
+  relativePath: string;
+  widgetType: string;
+  screenLayout: ScreenLayoutType;
+  layoutFlow: LayoutFlow;
+  elements: CanvasWidgetElement[];
+}
+
 export interface WorkspaceState {
   projectName: string | null;
   projectPath: string | null;
@@ -44,4 +59,6 @@ export interface WorkspaceState {
   showWelcomeOnStartup?: boolean;
   cursorPosition?: CursorPosition;
   isFlutterWizardOpen?: boolean;
+  detectedScreens?: DetectedScreen[];
+  isScanningScreens?: boolean;
 }

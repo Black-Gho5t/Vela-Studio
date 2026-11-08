@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { WorkspaceState, WorkspaceTab, FileNode, WorkspaceMode, CursorPosition } from "./workspace.types";
+import { WorkspaceState, WorkspaceTab, FileNode, WorkspaceMode, CursorPosition, DetectedScreen } from "./workspace.types";
 
 interface WorkspaceActions {
   setProjectName: (name: string | null) => void;
@@ -41,11 +41,15 @@ interface WorkspaceActions {
 
   // Folder / Project
   closeFolder: () => void;
+
+  // Screens
+  setDetectedScreens: (screens: DetectedScreen[]) => void;
+  scanScreens: () => Promise<void>;
 }
 
 export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // Initial State
       projectName: null,
       projectPath: null,
@@ -58,6 +62,8 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       workspaceMode: "editor",
       cursorPosition: { line: 1, column: 1 },
       isFlutterWizardOpen: false,
+      detectedScreens: [],
+      isScanningScreens: false,
       recentProjects: [
         {
           name: "Vela-Studio",
@@ -120,7 +126,12 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
         }),
       setWorkspaceMode: (mode) => set({ workspaceMode: mode }),
       setProjectName: (name) => set({ projectName: name }),
-      setProjectPath: (path) => set({ projectPath: path }),
+      setProjectPath: (path) => {
+        set({ projectPath: path });
+        if (path) {
+          get().scanScreens();
+        }
+      },
       closeFolder: () => {
         import("../api/workspace.api").then(({ workspaceApi }) => {
           workspaceApi.stopWatchingWorkspace().catch(() => {});
@@ -148,6 +159,8 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
           treeRevision: 0,
           workspaceMode: "editor",
           cursorPosition: { line: 1, column: 1 },
+          detectedScreens: [],
+          isScanningScreens: false,
         });
       },
       addTab: (tab) =>
@@ -177,7 +190,10 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       setActiveTab: (tabId) => set({ activeTabId: tabId }),
 
       setFileTree: (tree) => set({ fileTree: tree }),
-      refreshFileTree: () => set((state) => ({ treeRevision: state.treeRevision + 1 })),
+      refreshFileTree: () => {
+        set((state) => ({ treeRevision: state.treeRevision + 1 }));
+        get().scanScreens();
+      },
 
       updateTabContent: (tabId, content) =>
         set((state) => ({
@@ -206,6 +222,24 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       setSelectedDeviceId: (id) => set({ selectedDeviceId: id }),
       setCursorPosition: (cursorPosition) => set({ cursorPosition }),
       setFlutterWizardOpen: (open) => set({ isFlutterWizardOpen: open }),
+
+      setDetectedScreens: (detectedScreens) => set({ detectedScreens }),
+      scanScreens: async () => {
+        const path = get().projectPath;
+        if (!path) {
+          set({ detectedScreens: [], isScanningScreens: false });
+          return;
+        }
+        set({ isScanningScreens: true });
+        try {
+          const { workspaceApi } = await import("../api/workspace.api");
+          const screens = await workspaceApi.scanProjectScreens(path);
+          set({ detectedScreens: screens, isScanningScreens: false });
+        } catch (err) {
+          console.error("Failed to scan project screens:", err);
+          set({ isScanningScreens: false });
+        }
+      },
     }),
     {
       name: "workspace-project-storage",

@@ -1,5 +1,5 @@
 import { open as openDialog, confirm as confirmDialog } from "@tauri-apps/plugin-dialog";
-import { ChevronRight, FolderOpen, Smartphone, Trash2 } from "lucide-react";
+import { ChevronRight, FolderOpen, Smartphone, Trash2, Layout, Code2, RefreshCw } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { FileIcon, FolderMaterialIcon } from "./file-icon";
@@ -24,7 +24,7 @@ import { WorkspaceGit } from "./workspace-git";
 import { WorkspaceSearch } from "./workspace-search";
 import { useWorkspaceStore } from "../model/workspace.store";
 
-import { FileNode } from "../model/workspace.types";
+import { FileNode, DetectedScreen } from "../model/workspace.types";
 
 // ── TreeNode ──────────────────────────────────────────────────────────────────
 
@@ -267,6 +267,34 @@ function ExplorerView() {
   const projectPath = useWorkspaceStore((state) => state.projectPath);
   const treeRevision = useWorkspaceStore((state) => state.treeRevision);
   const refreshFileTree = useWorkspaceStore((state) => state.refreshFileTree);
+  const detectedScreens = useWorkspaceStore((state) => state.detectedScreens) || [];
+  const isScanningScreens = useWorkspaceStore((state) => state.isScanningScreens) || false;
+  const scanScreens = useWorkspaceStore((state) => state.scanScreens);
+  const tabs = useWorkspaceStore((state) => state.tabs);
+  const addTab = useWorkspaceStore((state) => state.addTab);
+  const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
+  const setWorkspaceMode = useWorkspaceStore((state) => state.setWorkspaceMode);
+
+  const handleOpenScreenInEditor = (screen: DetectedScreen) => {
+    const existing = tabs.find((t) => t.path === screen.filePath || t.id === screen.filePath);
+    if (existing) {
+      setActiveTab(existing.id);
+    } else {
+      addTab({
+        id: screen.filePath,
+        name: screen.fileName,
+        path: screen.filePath,
+        isActive: true,
+        isModified: false,
+      });
+    }
+    setWorkspaceMode("editor");
+  };
+
+  const handleOpenScreenInDesigner = (screen: DetectedScreen) => {
+    handleOpenScreenInEditor(screen);
+    setWorkspaceMode("designer");
+  };
 
   const loadRootTree = React.useCallback(async () => {
     if (!projectPath) {
@@ -361,6 +389,74 @@ function ExplorerView() {
       <div className="flex-1 min-h-0 overflow-hidden">
         {fileTree.length > 0 ? (
           <ScrollArea className="h-full w-full">
+            {/* Detected Screens Section */}
+            {detectedScreens.length > 0 && (
+              <div className="px-2 pt-1 pb-2 border-b border-sidebar-border/40">
+                <div className="flex items-center justify-between px-1.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
+                  <div className="flex items-center gap-1.5">
+                    <Smartphone className="size-3 text-sky-400" />
+                    <span>Pantallas</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-sky-500/10 text-sky-400 font-normal">
+                      {detectedScreens.length}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => scanScreens()}
+                    title="Re-escanear pantallas"
+                    className="p-1 hover:bg-sidebar-accent/60 rounded text-muted-foreground hover:text-sidebar-foreground transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className={cn("size-2.5", isScanningScreens && "animate-spin")} />
+                  </button>
+                </div>
+                <div className="space-y-0.5 mt-0.5">
+                  {detectedScreens.map((s) => (
+                    <div
+                      key={s.id}
+                      onClick={() => handleOpenScreenInEditor(s)}
+                      className="group flex items-center justify-between gap-2 px-1.5 py-1 rounded-md hover:bg-sidebar-accent/60 text-sidebar-foreground text-xs cursor-pointer transition-colors"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Smartphone className="size-3 text-sky-400 shrink-0" />
+                        <div className="flex flex-col min-w-0">
+                          <span className="truncate text-[11px] font-medium leading-tight">
+                            {s.name}
+                          </span>
+                          <span className="text-[9px] text-muted-foreground/60 truncate font-mono">
+                            {s.relativePath}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenScreenInDesigner(s);
+                          }}
+                          title="Abrir en Diseñador"
+                          className="p-1 hover:bg-sidebar-accent rounded text-muted-foreground hover:text-sky-400 transition-colors"
+                        >
+                          <Layout className="size-2.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenScreenInEditor(s);
+                          }}
+                          title="Abrir en Editor"
+                          className="p-1 hover:bg-sidebar-accent rounded text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Code2 className="size-2.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <SidebarMenu className="min-w-max space-y-0.5 whitespace-nowrap px-2 py-2">
               {fileTree.map((item) => (
                 <TreeNode key={item.id} node={item} />

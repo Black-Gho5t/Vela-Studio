@@ -116,6 +116,13 @@ export function WorkspaceShell() {
     return () => clearInterval(interval);
   }, [projectPath]);
 
+  // Scan project for screens on open or project change
+  React.useEffect(() => {
+    if (projectPath) {
+      useWorkspaceStore.getState().scanScreens();
+    }
+  }, [projectPath]);
+
   React.useEffect(() => {
     const fetchDevices = async () => {
       try {
@@ -316,8 +323,9 @@ export function WorkspaceShell() {
   const setWorkspaceMode = useWorkspaceStore((state) => state.setWorkspaceMode);
   const tabs = useWorkspaceStore((state) => state.tabs);
   const activeTabId = useWorkspaceStore((state) => state.activeTabId);
+  const detectedScreens = useWorkspaceStore((state) => state.detectedScreens) || [];
 
-  // Synchronize active Dart file to Designer frame when entering designer mode
+  // Synchronize active Dart file and detected screens to Designer frames when entering designer mode
   React.useEffect(() => {
     if (workspaceMode !== "designer") return;
 
@@ -325,6 +333,61 @@ export function WorkspaceShell() {
     setDesignerFrames((prev) =>
       prev.filter((f) => !f.fileName || isFlutterScreenFile(f.fileName, f.filePath))
     );
+
+    // If we have detected screens in the project, map all of them to device frames on the canvas!
+    if (detectedScreens.length > 0) {
+      const FRAME_W = 393;
+      const FRAME_H = 852;
+      const FRAME_GAP = 80;
+
+      setDesignerFrames((prev) => {
+        const total = detectedScreens.length;
+        const startX = -((total * FRAME_W + (total - 1) * FRAME_GAP) / 2);
+
+        return detectedScreens.map((screen, idx) => {
+          const existing = prev.find(
+            (f) => f.filePath === screen.filePath || f.fileName === screen.fileName || f.id === screen.id
+          );
+
+          if (existing) {
+            return {
+              ...existing,
+              name: screen.name,
+              fileName: screen.fileName,
+              filePath: screen.filePath,
+              elements: screen.elements.length > 0 ? screen.elements : existing.elements,
+              layoutFlow: screen.layoutFlow,
+              screenLayout: screen.screenLayout,
+            };
+          }
+
+          return {
+            id: screen.id,
+            type: "iphone",
+            name: screen.name,
+            x: startX + idx * (FRAME_W + FRAME_GAP),
+            y: -FRAME_H / 2,
+            width: FRAME_W,
+            height: FRAME_H,
+            fileName: screen.fileName,
+            filePath: screen.filePath,
+            elements: screen.elements,
+            layoutFlow: screen.layoutFlow,
+            screenLayout: screen.screenLayout,
+          };
+        });
+      });
+
+      // If active tab corresponds to one of the screens, focus/select that frame
+      const activeTab = tabs.find((t) => t.id === activeTabId);
+      if (activeTab) {
+        const match = detectedScreens.find((s) => s.filePath === activeTab.path || s.fileName === activeTab.name);
+        if (match) {
+          setSelectedFrameId(match.id);
+        }
+      }
+      return;
+    }
 
     const activeTab = tabs.find((t) => t.id === activeTabId);
     if (!activeTab || !activeTab.content || !isFlutterScreenFile(activeTab.name, activeTab.path, activeTab.content)) return;
@@ -373,7 +436,7 @@ export function WorkspaceShell() {
         setSelectedFrameId(newFrame.id);
       });
     }
-  }, [workspaceMode, activeTabId]);
+  }, [workspaceMode, activeTabId, detectedScreens]);
 
   // Synchronize Designer frames back to Editor when entering editor mode
   React.useEffect(() => {

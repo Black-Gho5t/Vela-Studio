@@ -1293,6 +1293,188 @@ class {class_name} extends StatelessWidget {{
     }
 }
 
+// ---------------------------------------------------------------------------
+// Screen Scanner & Detection Engine
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct DetectedScreen {
+    pub id: String,
+    pub name: String,
+    #[serde(rename = "className")]
+    pub class_name: String,
+    #[serde(rename = "fileName")]
+    pub file_name: String,
+    #[serde(rename = "filePath")]
+    pub file_path: String,
+    #[serde(rename = "relativePath")]
+    pub relative_path: String,
+    #[serde(rename = "widgetType")]
+    pub widget_type: String,
+    #[serde(rename = "screenLayout")]
+    pub screen_layout: String,
+    #[serde(rename = "layoutFlow")]
+    pub layout_flow: String,
+    pub elements: Vec<CanvasWidgetElement>,
+}
+
+pub fn pascal_to_title(pascal: &str) -> String {
+    let mut result = String::new();
+    let chars: Vec<char> = pascal.chars().collect();
+    for (i, &c) in chars.iter().enumerate() {
+        if i > 0 && c.is_uppercase() {
+            let prev = chars[i - 1];
+            let next_is_lower = i + 1 < chars.len() && chars[i + 1].is_lowercase();
+            if prev.is_lowercase() || (prev.is_uppercase() && next_is_lower) {
+                result.push(' ');
+            }
+        }
+        result.push(c);
+    }
+    result
+}
+
+fn is_screen_file_candidate(path: &std::path::Path) -> bool {
+    let path_str = path.to_string_lossy();
+    if !path_str.ends_with(".dart") {
+        return false;
+    }
+
+    let lower = path_str.to_lowercase();
+    let ignored_segments = [
+        "/theme/", "/styles/", "/colors/", "/constants/", "/models/", "/model/",
+        "/services/", "/service/", "/bloc/", "/blocs/", "/cubit/", "/cubits/",
+        "/providers/", "/provider/", "/utils/", "/util/", "/helpers/", "/generated/",
+        "/.dart_tool/", "/test/", "/build/",
+    ];
+    for seg in &ignored_segments {
+        if lower.contains(seg) {
+            return false;
+        }
+    }
+
+    let ignored_suffixes = [
+        ".g.dart", ".freezed.dart", "_test.dart", "_colors.dart", "_theme.dart",
+        "_styles.dart", "_constants.dart", "_model.dart", "_service.dart",
+        "_bloc.dart", "_cubit.dart", "_provider.dart", "_state.dart", "_event.dart",
+    ];
+    for suf in &ignored_suffixes {
+        if lower.ends_with(suf) {
+            return false;
+        }
+    }
+
+    true
+}
+
+/// Scans a Flutter project's `lib` directory and detects all UI screens and their visual elements.
+pub fn scan_project_screens(project_path: &str) -> Result<Vec<DetectedScreen>, String> {
+    let root = std::path::Path::new(project_path);
+    if !root.exists() {
+        return Err(format!("Project path does not exist: {}", project_path));
+    }
+
+    let lib_dir = root.join("lib");
+    let scan_dir = if lib_dir.is_dir() { lib_dir } else { root.to_path_buf() };
+
+    let mut screens = Vec::new();
+
+    let class_regex = regex::Regex::new(
+        r"class\s+([A-Za-z0-9_]+)\s+extends\s+(StatelessWidget|StatefulWidget|ConsumerWidget|HookWidget)"
+    ).map_err(|e| e.to_string())?;
+
+    let walker = ignore::WalkBuilder::new(&scan_dir)
+        .standard_filters(true)
+        .hidden(true)
+        .build();
+
+    for entry in walker.flatten() {
+        let path = entry.path();
+        if path.is_file() && is_screen_file_candidate(path) {
+            if let Ok(content) = fs::read_to_string(path) {
+                // Must have a build method or Scaffold to be considered a visual screen
+                if !content.contains("Widget build") && !content.contains("Scaffold") {
+                    continue;
+                }
+
+                let mut matches: Vec<(String, String)> = Vec::new();
+                for caps in class_regex.captures_iter(&content) {
+                    if let (Some(c), Some(w)) = (caps.get(1), caps.get(2)) {
+                        let name = c.as_str().to_string();
+                        let widget = w.as_str().to_string();
+                        if !name.is_empty() && !name.starts_with('_') {
+                            matches.push((name, widget));
+                        }
+                    }
+                }
+
+                if matches.is_empty() {
+                    continue;
+                }
+
+                let chosen = if matches.len() == 1 {
+                    &matches[0]
+                } else {
+                    matches
+                        .iter()
+                        .find(|(name, _)| {
+                            name.ends_with("Screen") || name.ends_with("Page") || name.ends_with("View")
+                        })
+                        .or_else(|| matches.iter().find(|(name, _)| name != "MyApp"))
+                        .unwrap_or(&matches[0])
+                };
+
+                let class_name = chosen.0.clone();
+                let widget_type = chosen.1.clone();
+
+                let file_name = path
+                    .file_name()
+                    .map_or_else(|| "screen.dart".to_string(), |n| n.to_string_lossy().to_string());
+
+                let rel_path = path
+                    .strip_prefix(root)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .to_string();
+
+                let abs_path = path.to_string_lossy().to_string();
+                let name = pascal_to_title(&class_name);
+                let id = format!("screen-{}", rel_path.replace(['/', '\\', '.'], "-"));
+
+                let sync_data = parse_dart_to_canvas_data(&content);
+
+                screens.push(DetectedScreen {
+                    id,
+                    name,
+                    class_name,
+                    file_name,
+                    file_path: abs_path,
+                    relative_path: rel_path,
+                    widget_type,
+                    screen_layout: sync_data.screen_layout,
+                    layout_flow: sync_data.layout_flow,
+                    elements: sync_data.elements,
+                });
+            }
+        }
+    }
+
+    // Sort screens: main.dart first, then alphabetically by name
+    screens.sort_by(|a, b| {
+        let a_is_main = a.file_name == "main.dart";
+        let b_is_main = b.file_name == "main.dart";
+        if a_is_main && !b_is_main {
+            std::cmp::Ordering::Less
+        } else if !a_is_main && b_is_main {
+            std::cmp::Ordering::Greater
+        } else {
+            a.name.cmp(&b.name)
+        }
+    });
+
+    Ok(screens)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1406,6 +1588,99 @@ final theme = ThemeData(
         let code = generate_flutter_colors_code(&vars);
         assert!(code.contains("class AppColors"));
         assert!(code.contains("Color(0xFF6750A4)"));
+    }
+
+    #[test]
+    fn test_pascal_to_title() {
+        assert_eq!(pascal_to_title("HomeScreen"), "Home Screen");
+        assert_eq!(pascal_to_title("LoginScreen"), "Login Screen");
+        assert_eq!(pascal_to_title("UserProfilePage"), "User Profile Page");
+        assert_eq!(pascal_to_title("MyHomePage"), "My Home Page");
+    }
+
+    #[test]
+    fn test_scan_project_screens() {
+        let temp_dir = std::env::temp_dir().join(format!("vela_test_screens_{}", uuid::Uuid::new_v4()));
+        let lib_dir = temp_dir.join("lib");
+        let screens_dir = lib_dir.join("screens");
+        let theme_dir = lib_dir.join("theme");
+        fs::create_dir_all(&screens_dir).unwrap();
+        fs::create_dir_all(&theme_dir).unwrap();
+
+        // 1. main.dart with Scaffold
+        let main_code = r#"
+import 'package:flutter/material.dart';
+
+void main() => runApp(const MyApp());
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(home: MyHomePage());
+  }
+}
+
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key});
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Home')),
+      body: const Center(child: Text('Welcome')),
+    );
+  }
+}
+"#;
+        fs::write(lib_dir.join("main.dart"), main_code).unwrap();
+
+        // 2. screens/profile_screen.dart
+        let profile_code = r#"
+import 'package:flutter/material.dart';
+
+class ProfileScreen extends StatelessWidget {
+  const ProfileScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        children: [
+          Text('Profile'),
+          ElevatedButton(onPressed: () {}, child: Text('Save')),
+        ],
+      ),
+    );
+  }
+}
+"#;
+        fs::write(screens_dir.join("profile_screen.dart"), profile_code).unwrap();
+
+        // 3. theme/colors.dart (should be ignored)
+        let theme_code = r#"
+import 'package:flutter/material.dart';
+class AppColors {
+  static const primary = Colors.blue;
+}
+"#;
+        fs::write(theme_dir.join("colors.dart"), theme_code).unwrap();
+
+        let screens = scan_project_screens(temp_dir.to_str().unwrap()).unwrap();
+        assert_eq!(screens.len(), 2);
+        assert_eq!(screens[0].file_name, "main.dart");
+        assert_eq!(screens[0].class_name, "MyHomePage");
+        assert_eq!(screens[0].name, "My Home Page");
+
+        assert_eq!(screens[1].file_name, "profile_screen.dart");
+        assert_eq!(screens[1].class_name, "ProfileScreen");
+        assert_eq!(screens[1].name, "Profile Screen");
+        assert_eq!(screens[1].elements.len(), 2);
+
+        let _ = fs::remove_dir_all(&temp_dir);
     }
 }
 

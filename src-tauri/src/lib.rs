@@ -999,6 +999,13 @@ async fn generate_flutter_screen(
 }
 
 #[tauri::command]
+async fn scan_project_screens(
+    project_path: String,
+) -> Result<Vec<ast_parser::DetectedScreen>, String> {
+    ast_parser::scan_project_screens(&project_path)
+}
+
+#[tauri::command]
 async fn get_git_status(path: String) -> Result<git_engine::GitRepoStatus, String> {
     git_engine::get_repo_status(&path)
 }
@@ -1193,6 +1200,7 @@ pub fn run() {
             patch_scaffold_body,
             parse_dart_file_to_canvas,
             generate_flutter_screen,
+            scan_project_screens,
             is_macos
         ])
         .run(tauri::generate_context!())

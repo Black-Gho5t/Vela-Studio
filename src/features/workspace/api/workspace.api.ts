@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { DetectedScreen } from "../model/workspace.types";
 
 export interface GitStatusFile {
   path: string;
@@ -140,6 +141,13 @@ export const workspaceApi = {
       screenTitle,
       layoutType,
     });
+  },
+
+  /**
+   * Scans project lib directory and returns all detected UI screens with AST parsed metadata.
+   */
+  async scanProjectScreens(projectPath: string): Promise<DetectedScreen[]> {
+    return invoke<DetectedScreen[]>("scan_project_screens", { projectPath });
   },
 
   /**
