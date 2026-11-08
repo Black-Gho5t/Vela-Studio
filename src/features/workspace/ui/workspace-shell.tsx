@@ -13,6 +13,7 @@ import { WorkspaceSecondaryRail, type SecondaryRailView } from "./workspace-seco
 import { WorkspaceTerminal } from "./workspace-terminal";
 import { WorkspaceStatusbar } from "./workspace-statusbar";
 import { WorkspaceNotifications } from "./workspace-notifications";
+import { WorkspaceFlutterWizard } from "./workspace-flutter-wizard";
 import {
   Layers,
   PanelLeft,
@@ -82,6 +83,8 @@ export function WorkspaceShell() {
   const [engineReady, setEngineReady] = React.useState(false);
   const projectName = useWorkspaceStore((state) => state.projectName);
   const projectPath = useWorkspaceStore((state) => state.projectPath);
+  const isFlutterWizardOpen = useWorkspaceStore((state) => state.isFlutterWizardOpen) ?? false;
+  const setFlutterWizardOpen = useWorkspaceStore((state) => state.setFlutterWizardOpen);
 
   const [gitBranch, setGitBranch] = React.useState<string | undefined>(undefined);
   const [activeBottomTab, setActiveBottomTab] = React.useState<"PROBLEMS" | "OUTPUT" | "DEBUG CONSOLE" | "TERMINAL">("TERMINAL");
@@ -860,6 +863,12 @@ export function WorkspaceShell() {
           setBottomPanel(true);
           setActiveBottomTab(tab);
         }}
+      />
+
+      {/* Flutter New Project Wizard */}
+      <WorkspaceFlutterWizard
+        open={isFlutterWizardOpen}
+        onOpenChange={setFlutterWizardOpen}
       />
       </div>
     </SidebarProvider>

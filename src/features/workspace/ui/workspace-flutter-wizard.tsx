@@ -78,7 +78,7 @@ export function WorkspaceFlutterWizard({
           step: 1,
           template: "app",
           projectName: "",
-          projectPath: "~/rocket-projects",
+          projectPath: "~/Developer",
           isCreating: false,
         };
       }
@@ -88,7 +88,7 @@ export function WorkspaceFlutterWizard({
       step: 1,
       template: "app",
       projectName: "",
-      projectPath: "~/rocket-projects",
+      projectPath: "~/Developer",
       isCreating: false,
     },
   );
@@ -125,12 +125,46 @@ export function WorkspaceFlutterWizard({
         projectName: finalName,
         template,
       });
+
+      const cleanDir = projectPath.replace(/[/\\]+$/, "");
+      const resolvedTarget = `${cleanDir}/${finalName}`;
+
       setProjectName(finalName);
-      setProjectPathAction(`${projectPath}/${finalName}`);
+      setProjectPathAction(resolvedTarget);
+
+      const store = useWorkspaceStore.getState();
+      store.addRecentProject({ name: finalName, path: resolvedTarget });
+      store.refreshFileTree();
+
+      // Automatically open lib/main.dart if generated
+      const mainDartPath = `${resolvedTarget}/lib/main.dart`;
+      try {
+        const { workspaceApi } = await import("../api/workspace.api");
+        const content = await workspaceApi.readFile(mainDartPath);
+        store.addTab({
+          id: mainDartPath,
+          name: "main.dart",
+          path: mainDartPath,
+          isActive: true,
+          isModified: false,
+          content,
+        });
+      } catch {
+        // Fallback: tree will be visible in explorer
+      }
+
       onOpenChange(false);
     } catch (e) {
       console.error("Error creating Flutter project:", e);
-      alert(`Failed to create project: ${e}`);
+      try {
+        const { message: messageDialog } = await import("@tauri-apps/plugin-dialog");
+        await messageDialog(`Error al crear el proyecto: ${String(e)}`, {
+          title: "Error al crear proyecto Flutter",
+          kind: "error",
+        });
+      } catch {
+        alert(`Failed to create project: ${e}`);
+      }
     } finally {
       dispatch({ isCreating: false });
     }

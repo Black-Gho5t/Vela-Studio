@@ -35,6 +35,9 @@ interface WorkspaceActions {
 
   // Settings
   openSettingsTab: () => void;
+
+  // Flutter Wizard
+  setFlutterWizardOpen: (open: boolean) => void;
 }
 
 export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
@@ -51,6 +54,7 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       selectedDeviceId: null,
       workspaceMode: "editor",
       cursorPosition: { line: 1, column: 1 },
+      isFlutterWizardOpen: false,
       recentProjects: [
         {
           name: "Vela-Studio",
@@ -169,6 +173,7 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       setDevices: (devices) => set({ devices }),
       setSelectedDeviceId: (id) => set({ selectedDeviceId: id }),
       setCursorPosition: (cursorPosition) => set({ cursorPosition }),
+      setFlutterWizardOpen: (open) => set({ isFlutterWizardOpen: open }),
     }),
     {
       name: "workspace-project-storage",

@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Code2,
   Search,
+  Smartphone,
 } from "lucide-react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useWorkspaceStore } from "../model/workspace.store";
@@ -88,6 +89,15 @@ export function WorkspaceWelcomeTab({ onSwitchView }: WorkspaceWelcomeTabProps) 
   }, [recentProjects, projectSearch]);
 
   const quickActions = [
+    {
+      id: "new-project",
+      title: "Nuevo proyecto Flutter",
+      description: "Asistente para crear un nuevo proyecto o app Flutter",
+      icon: Smartphone,
+      badge: "Wizard",
+      color: "text-primary bg-primary/10 border-primary/20",
+      action: () => useWorkspaceStore.getState().setFlutterWizardOpen(true),
+    },
     {
       id: "open",
       title: "Abrir carpeta",

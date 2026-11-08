@@ -1,5 +1,5 @@
 import Editor from "@monaco-editor/react";
-import { FileCode, X, Layout, FolderOpen, Settings2 } from "lucide-react";
+import { FileCode, X, Layout, FolderOpen, Settings2, Smartphone } from "lucide-react";
 import * as React from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { FileIcon } from "./file-icon";
@@ -627,7 +627,7 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
                         {projectName ? (
                           <FileCode className="size-5 text-muted-foreground" />
                         ) : (
-                          <FolderOpen className="size-5 text-muted-foreground" />
+                          <Smartphone className="size-5 text-primary" />
                         )}
                       </EmptyMedia>
                       <EmptyTitle className="text-sm">
@@ -636,33 +636,45 @@ export function WorkspaceOverview({ onSwitchView }: WorkspaceOverviewProps = {})
                       <EmptyDescription className="text-xs text-muted-foreground">
                         {projectName
                           ? "Select a file from the explorer to view and edit code."
-                          : "Open a folder to start working on your project."}
+                          : "Create a new Flutter project with the wizard or open an existing folder to start building."}
                       </EmptyDescription>
                     </EmptyHeader>
                     {!projectName && (
-                      <div className="mt-3 flex items-center gap-2">
+                      <div className="mt-4 flex flex-col items-center gap-2 w-full max-w-xs">
                         <Button
-                          variant="outline"
+                          variant="default"
                           size="sm"
-                          onClick={handleOpenFolder}
-                          className="text-xs"
+                          onClick={() => useWorkspaceStore.getState().setFlutterWizardOpen(true)}
+                          className="w-full text-xs font-medium gap-2 shadow-xs cursor-pointer"
                         >
-                          <FolderOpen className="size-3.5 mr-1.5" />
-                          Open Folder
+                          <Smartphone className="size-3.5" />
+                          <span>Nuevo proyecto Flutter</span>
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => useWorkspaceStore.getState().openWelcomeTab()}
-                          className="text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-                        >
-                          <img
-                            src="/app-logo.png"
-                            alt="Vela"
-                            className="size-3.5 mr-1.5 object-contain shrink-0"
-                          />
-                          Welcome Page
-                        </Button>
+                        <div className="flex items-center gap-2 w-full">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleOpenFolder}
+                            className="flex-1 text-xs gap-1.5 cursor-pointer"
+                          >
+                            <FolderOpen className="size-3.5" />
+                            <span>Abrir carpeta</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => useWorkspaceStore.getState().openWelcomeTab()}
+                            className="text-xs text-muted-foreground hover:text-foreground cursor-pointer px-2"
+                            title="Abrir página de bienvenida"
+                          >
+                            <img
+                              src="/app-logo.png"
+                              alt="Vela"
+                              className="size-3.5 mr-1 object-contain shrink-0"
+                            />
+                            <span>Bienvenida</span>
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </Empty>

@@ -43,4 +43,5 @@ export interface WorkspaceState {
   recentProjects?: RecentProject[];
   showWelcomeOnStartup?: boolean;
   cursorPosition?: CursorPosition;
+  isFlutterWizardOpen?: boolean;
 }

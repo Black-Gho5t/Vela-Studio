@@ -1,5 +1,5 @@
 import { open as openDialog, confirm as confirmDialog } from "@tauri-apps/plugin-dialog";
-import { ChevronRight, FolderOpen, Trash2 } from "lucide-react";
+import { ChevronRight, FolderOpen, Smartphone, Trash2 } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { FileIcon, FolderMaterialIcon } from "./file-icon";
@@ -368,13 +368,22 @@ function ExplorerView() {
             </SidebarMenu>
           </ScrollArea>
         ) : (
-          <div className="flex flex-col items-center justify-center h-full p-4 text-center">
-            <p className="text-xs text-muted-foreground mb-3">No hay carpeta abierta</p>
+          <div className="flex flex-col items-center justify-center h-full p-4 text-center gap-2">
+            <p className="text-xs text-muted-foreground mb-1">No hay carpeta abierta</p>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => useWorkspaceStore.getState().setFlutterWizardOpen(true)}
+              className="text-xs h-7 gap-1.5 w-full max-w-[180px] cursor-pointer"
+            >
+              <Smartphone className="size-3.5" />
+              <span>Nuevo proyecto</span>
+            </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={handleOpenFolder}
-              className="text-xs h-7 gap-1.5 cursor-pointer"
+              className="text-xs h-7 gap-1.5 w-full max-w-[180px] cursor-pointer"
             >
               <FolderOpen className="size-3.5" />
               <span>Abrir carpeta</span>
