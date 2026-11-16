@@ -4,11 +4,9 @@ import {
   SlidersHorizontal,
   Palette,
   Smartphone,
-  Code2,
   Copy,
   Check,
   Plus,
-  ExternalLink,
   RefreshCw,
   Layers,
   Component,
@@ -270,8 +268,6 @@ export function DesignerSidebar({
   const [isComponentsInitialized, setIsComponentsInitialized] = React.useState(false);
   const [isInitializingComponents, setIsInitializingComponents] = React.useState(false);
   const [copiedCompId, setCopiedCompId] = React.useState<string | null>(null);
-
-  const { setWorkspaceMode } = useWorkspaceStore();
 
   const refreshThemeVariables = React.useCallback(async () => {
     setIsLoadingTheme(true);
@@ -728,21 +724,6 @@ class CustomButton extends StatelessWidget {
                                   <Eye className="size-3" />
                                 )}
                               </button>
-                              {frame.filePath && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const store = useWorkspaceStore.getState();
-                                    store.setActiveTab(frame.filePath!);
-                                    store.setWorkspaceMode("editor");
-                                  }}
-                                  title={`Abrir ${frame.fileName || "archivo"} en el Editor`}
-                                  className="hidden group-hover:flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                                >
-                                  <Code2 className="size-3 text-primary" />
-                                </button>
-                              )}
                             </div>
                           </div>
 
@@ -878,33 +859,6 @@ class CustomButton extends StatelessWidget {
                     })}
                   </div>
                 )}
-
-                {/* Editor Access Section */}
-                <div className="space-y-1.5 pt-2 border-t border-sidebar-border/60">
-                  <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground px-1">
-                    Editor de Código
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setWorkspaceMode("editor")}
-                    className="w-full flex items-center justify-between p-2 rounded-lg border border-sidebar-border/60 hover:bg-sidebar-accent/60 transition-colors text-left group"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className="size-6 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                        <Code2 className="size-3.5" />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">
-                          Abrir Editor
-                        </span>
-                        <span className="text-[10px] text-muted-foreground truncate">
-                          Ver código fuente y lógica
-                        </span>
-                      </div>
-                    </div>
-                    <ExternalLink className="size-3.5 text-muted-foreground group-hover:text-foreground shrink-0 transition-colors" />
-                  </button>
-                </div>
               </div>
             ) : activeRailTab === "components" ? (
               /* ── Biblioteca de Componentes UI (Arrastrar y Soltar) ── */
@@ -1053,18 +1007,6 @@ class CustomButton extends StatelessWidget {
                                     <Copy className="size-3" />
                                   )}
                                 </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const store = useWorkspaceStore.getState();
-                                    store.setActiveTab(comp.filePath);
-                                    store.setWorkspaceMode("editor");
-                                  }}
-                                  title={`Editar ${comp.fileName} en el editor`}
-                                  className="size-5 flex items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                                >
-                                  <Code2 className="size-3 text-primary" />
-                                </button>
                               </div>
                             </div>
                             <span className="text-[9px] font-mono text-muted-foreground/60 truncate">
@@ -1119,28 +1061,6 @@ class CustomButton extends StatelessWidget {
                     </Button>
                   </div>
                 </div>
-
-                {/* Quick Link to open Flutter Theme File in Editor */}
-                {themeSource && themeSource.endsWith(".dart") && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const { projectPath } = useWorkspaceStore.getState();
-                      const fullPath = projectPath
-                        ? `${projectPath.replace(/\/+$/, "")}/${themeSource}`
-                        : themeSource;
-                      useWorkspaceStore.getState().setActiveTab(fullPath);
-                      useWorkspaceStore.getState().setWorkspaceMode("editor");
-                    }}
-                    className="w-full flex items-center justify-between px-2 py-1.5 rounded-md border border-sidebar-border/60 bg-sidebar-accent/20 hover:bg-sidebar-accent/50 text-[10px] text-muted-foreground hover:text-foreground transition-colors group"
-                  >
-                    <div className="flex items-center gap-1.5 truncate min-w-0">
-                      <Code2 className="size-3 text-primary shrink-0" />
-                      <span className="truncate">Editar {themeSource}</span>
-                    </div>
-                    <ExternalLink className="size-2.5 opacity-60 group-hover:opacity-100 shrink-0" />
-                  </button>
-                )}
 
                 {/* Inline Add Color Form */}
                 {isAddingColor && (

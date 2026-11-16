@@ -330,7 +330,6 @@ export function WorkspaceShell() {
   };
 
   const workspaceMode = useWorkspaceStore((state) => state.workspaceMode);
-  const setWorkspaceMode = useWorkspaceStore((state) => state.setWorkspaceMode);
   const tabs = useWorkspaceStore((state) => state.tabs);
   const activeTabId = useWorkspaceStore((state) => state.activeTabId);
   const detectedScreens = useWorkspaceStore((state) => state.detectedScreens) || [];
@@ -545,7 +544,6 @@ export function WorkspaceShell() {
           onToggleBottom={() => setBottomPanel(!bottomPanel)}
           onToggleRight={handleToggleRight}
           mode={workspaceMode}
-          onModeChange={setWorkspaceMode}
         />
 
         {/* Editor Workspace: renders full shell layout (activity bar, file tree, monaco editor, panels) */}

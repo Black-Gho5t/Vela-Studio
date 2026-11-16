@@ -81,7 +81,7 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       treeRevision: 0,
       devices: [],
       selectedDeviceId: null,
-      workspaceMode: "editor",
+      workspaceMode: "designer",
       cursorPosition: { line: 1, column: 1 },
       isFlutterWizardOpen: false,
       detectedScreens: [],
@@ -107,7 +107,7 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
         set((state) => {
           const existing = state.tabs.find((t) => t.id === "settings");
           if (existing) {
-            return { activeTabId: "settings", workspaceMode: "editor" };
+            return { activeTabId: "settings" };
           }
           const settingsTab: WorkspaceTab = {
             id: "settings",
@@ -119,7 +119,6 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
           return {
             tabs: [...state.tabs, settingsTab],
             activeTabId: "settings",
-            workspaceMode: "editor",
           };
         }),
       openWelcomeTab: () =>
@@ -153,7 +152,7 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
             ].slice(0, 10),
           };
         }),
-      setWorkspaceMode: (mode) => set({ workspaceMode: mode }),
+      setWorkspaceMode: () => set({ workspaceMode: "designer" }),
       setProjectName: (name) => set({ projectName: name }),
       setProjectPath: (path) => {
         set({ projectPath: path });
@@ -186,7 +185,7 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
           activeTabId: "welcome",
           fileTree: [],
           treeRevision: 0,
-          workspaceMode: "editor",
+          workspaceMode: "designer",
           cursorPosition: { line: 1, column: 1 },
           detectedScreens: [],
           isScanningScreens: false,
@@ -375,7 +374,6 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
       partialize: (state) => ({
         projectName: state.projectName,
         projectPath: state.projectPath,
-        workspaceMode: state.workspaceMode,
         recentProjects: state.recentProjects,
         showWelcomeOnStartup: state.showWelcomeOnStartup,
       }),

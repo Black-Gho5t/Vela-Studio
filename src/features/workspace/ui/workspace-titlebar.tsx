@@ -15,8 +15,6 @@ import {
   MoreVertical,
   Layers,
   Square,
-  Layout,
-  Code2,
   FolderOpen,
   FolderX,
   Smartphone,
@@ -49,7 +47,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "../model/workspace.store";
 import { WorkspaceMode } from "../model/workspace.types";
@@ -67,7 +64,6 @@ interface WorkspaceTitlebarProps {
   onToggleBottom: () => void;
   onToggleRight: () => void;
   mode?: WorkspaceMode;
-  onModeChange?: (mode: WorkspaceMode) => void;
 }
 
 // ── constants ─────────────────────────────────────────────────────────────────
@@ -96,7 +92,6 @@ export function WorkspaceTitlebar({
   onToggleBottom,
   onToggleRight,
   mode,
-  onModeChange,
 }: WorkspaceTitlebarProps) {
   const panelState  = { left: leftPanel, bottom: bottomPanel, right: rightPanel };
   const panelToggle = { left: onToggleLeft, bottom: onToggleBottom, right: onToggleRight };
@@ -121,10 +116,8 @@ export function WorkspaceTitlebar({
   const projectPath = useWorkspaceStore((s) => s.projectPath);
 
   const storeMode = useWorkspaceStore((s) => s.workspaceMode);
-  const storeSetMode = useWorkspaceStore((s) => s.setWorkspaceMode);
 
-  const currentMode = mode ?? storeMode ?? "editor";
-  const handleModeChange = onModeChange ?? storeSetMode;
+  const currentMode = mode ?? storeMode ?? "designer";
 
   const fetchBranches = React.useCallback(async () => {
     if (!projectPath) return;
@@ -260,35 +253,8 @@ export function WorkspaceTitlebar({
         className="absolute inset-0 z-0 pointer-events-auto"
       />
 
-      {/* ── Left: Tabs (Diseñador / Editor) + Project info ── */}
+      {/* ── Left: File Menu + Project info ── */}
       <div data-tauri-drag-region className="relative flex items-center gap-3 min-w-0 z-10">
-        <Tabs
-          value={currentMode}
-          onValueChange={(val) => {
-            if (val === "designer" || val === "editor") {
-              handleModeChange(val);
-            }
-          }}
-          className="flex-row items-center"
-        >
-          <TabsList className="group-data-horizontal/tabs:h-7 h-7 bg-muted/40 p-0.5 rounded-lg border-0">
-            <TabsTrigger
-              value="designer"
-              className="h-6 min-w-[70px] justify-center px-2 text-xs font-medium gap-1 rounded-md text-muted-foreground transition-colors hover:text-foreground data-active:bg-background data-active:text-foreground data-active:shadow-xs"
-            >
-              <Layout className="size-3.5 opacity-70" />
-              <span>Diseñador</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="editor"
-              className="h-6 min-w-[70px] justify-center px-2 text-xs font-medium gap-1 rounded-md text-muted-foreground transition-colors hover:text-foreground data-active:bg-background data-active:text-foreground data-active:shadow-xs"
-            >
-              <Code2 className="size-3.5 opacity-70" />
-              <span>Editor</span>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-
         {/* File Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger
