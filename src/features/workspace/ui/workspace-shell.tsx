@@ -17,7 +17,6 @@ import { WorkspaceFlutterWizard } from "./workspace-flutter-wizard";
 import {
   Layers,
   PanelLeft,
-  PanelsTopLeft,
   Frame,
   SlidersHorizontal,
   Smartphone,
@@ -28,9 +27,17 @@ import {
   CheckCircle2,
   Bug,
   FileText,
+  ChevronDown,
+  Play,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
 import { DesignerSidebar } from "./designer-sidebar";
 import { DesignerCanvas, type CanvasDeviceFrame, type CanvasWidgetElement } from "./designer-canvas";
 import { type DesignerTool } from "./designer-dock";
@@ -173,6 +180,8 @@ export function WorkspaceShell() {
     return saved ? parseInt(saved, 10) : 280;
   });
   const [designerActiveTool, setDesignerActiveTool] = React.useState<DesignerTool>("select");
+  const [designerZoom, setDesignerZoom] = React.useState(1);
+  const [fitZoomCount, setFitZoomCount] = React.useState(0);
   const [designerFrames, setDesignerFrames] = React.useState<CanvasDeviceFrame[]>([]);
   const [selectedFrameId, setSelectedFrameId] = React.useState<string>("");
   const [selectedElementId, setSelectedElementId] = React.useState<string>("");
@@ -530,7 +539,10 @@ export function WorkspaceShell() {
   }
 
   return (
-    <SidebarProvider open={designerSidebarOpen} onOpenChange={setDesignerSidebarOpen}>
+    <SidebarProvider
+      open={!designerSidebarsMinimized}
+      onOpenChange={(open) => setDesignerSidebarsMinimized(!open)}
+    >
       <div className="flex h-svh w-full flex-col overflow-hidden bg-background">
         {/* Full-width Titlebar across entire window */}
         <WorkspaceTitlebar
@@ -546,7 +558,8 @@ export function WorkspaceShell() {
           mode={workspaceMode}
         />
 
-        {/* Editor Workspace: renders full shell layout (activity bar, file tree, monaco editor, panels) */}
+        {/* Editor Workspace removed — Designer only */}
+        {false && (
         <div
           className={cn(
             "flex flex-1 min-h-0 w-full overflow-hidden",
@@ -795,6 +808,7 @@ export function WorkspaceShell() {
           isOpen={rightPanel}
         />
       </div>
+      )}
 
       {/* Designer Workspace: layout with Sidebars and Rounded Infinite Canvas */}
       {workspaceMode === "designer" && (
@@ -831,6 +845,9 @@ export function WorkspaceShell() {
                 onSelectFrameId={handleSelectFrameId}
                 selectedElementId={selectedElementId}
                 onSelectElementId={handleSelectElementId}
+                scale={designerZoom}
+                onScaleChange={setDesignerZoom}
+                fitRequestCount={fitZoomCount}
               />
             </div>
           </div>
@@ -885,11 +902,13 @@ export function WorkspaceShell() {
             )}
           >
             {/* Left Pill */}
-            <div className="pointer-events-auto flex items-center gap-2 h-9 px-3 rounded-2xl border border-border/80 bg-background/85 backdrop-blur-xl shadow-xl text-foreground select-none">
-              <Layers className="size-4 text-primary shrink-0" />
-              <span className="text-xs font-medium max-w-[180px] truncate">
-                {projectName || "Vela Studio"}
-              </span>
+            <div className="pointer-events-auto flex items-center justify-between gap-2 h-9 w-[220px] px-3 rounded-2xl border border-border/80 bg-background/85 backdrop-blur-xl shadow-xl text-foreground select-none">
+              <div className="flex items-center gap-2 min-w-0">
+                <Layers className="size-4 text-primary shrink-0" />
+                <span className="text-xs font-medium truncate">
+                  {projectName || "Vela Studio"}
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -898,31 +917,82 @@ export function WorkspaceShell() {
                   setDesignerRightSidebarOpen(true);
                 }}
                 title="Maximizar sidebars"
-                className="ml-1 flex size-6 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                className="flex size-6 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
               >
                 <PanelLeft className="size-3.5" />
               </button>
             </div>
 
             {/* Right Pill */}
-            <div className="pointer-events-auto flex items-center gap-2 h-9 px-2.5 rounded-2xl border border-border/80 bg-background/85 backdrop-blur-xl shadow-xl text-foreground select-none">
-              <div className="size-5 rounded-full bg-amber-500/20 text-amber-500 font-semibold text-[10px] flex items-center justify-center border border-amber-500/30">
-                B
-              </div>
-              <Button
-                variant="outline"
-                size="xs"
-                onClick={() => {
-                  setDesignerSidebarsMinimized(false);
-                  setDesignerSidebarOpen(true);
-                  setDesignerRightSidebarOpen(true);
-                }}
-                className="h-6 gap-1 px-2 text-[11px] font-medium border-border/60 hover:bg-muted/80 shadow-xs rounded-lg"
-                title="Volver a maximizar las 2 sidebars"
+            <div className="pointer-events-auto flex items-center justify-start gap-1 h-9 w-[220px] px-3 rounded-2xl border border-border/80 bg-background/85 backdrop-blur-xl shadow-xl text-foreground select-none">
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 h-6 rounded-lg px-1.5 text-xs font-medium tabular-nums text-foreground hover:bg-muted/80 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      title="Opciones de zoom"
+                    >
+                      <span>{Math.round(designerZoom * 100)}%</span>
+                      <ChevronDown className="size-3 text-muted-foreground shrink-0" />
+                    </button>
+                  }
+                />
+                <DropdownMenuContent align="start" sideOffset={8} className="w-52 p-1 text-xs">
+                  <DropdownMenuItem
+                    onClick={() =>
+                      setDesignerZoom((z) => Math.min(2, Math.round((z + 0.1) * 10) / 10))
+                    }
+                    className="cursor-pointer"
+                  >
+                    <span>Ampliar</span>
+                    <DropdownMenuShortcut>⌘+</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      setDesignerZoom((z) => Math.max(0.25, Math.round((z - 0.1) * 10) / 10))
+                    }
+                    className="cursor-pointer"
+                  >
+                    <span>Acercar</span>
+                    <DropdownMenuShortcut>⌘−</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setFitZoomCount((c) => c + 1)}
+                    className="cursor-pointer"
+                  >
+                    <span>Zoom para ajustar</span>
+                    <DropdownMenuShortcut>⇧1</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setDesignerZoom(0.5)}
+                    className="cursor-pointer"
+                  >
+                    <span>Zoom al 50 %</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setDesignerZoom(1)}
+                    className="cursor-pointer"
+                  >
+                    <span>Zoom al 100 %</span>
+                    <DropdownMenuShortcut>⌘0</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setDesignerZoom(2)}
+                    className="cursor-pointer"
+                  >
+                    <span>Zoom al 200 %</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <button
+                type="button"
+                title="Play"
+                className="flex size-6 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors cursor-pointer"
               >
-                <PanelsTopLeft className="size-3.5" />
-                <span>Maximizar</span>
-              </Button>
+                <Play className="size-3.5" />
+              </button>
             </div>
           </div>
         </div>

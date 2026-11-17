@@ -377,6 +377,11 @@ export const useWorkspaceStore = create<WorkspaceState & WorkspaceActions>()(
         recentProjects: state.recentProjects,
         showWelcomeOnStartup: state.showWelcomeOnStartup,
       }),
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        ...(persistedState as Partial<WorkspaceState & WorkspaceActions>),
+        workspaceMode: "designer",
+      }),
     },
   ),
 );

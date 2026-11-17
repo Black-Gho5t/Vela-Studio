@@ -33,6 +33,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+} from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "../model/workspace.store";
 import type { CanvasDeviceFrame, CanvasWidgetElement } from "./designer-canvas";
@@ -202,7 +207,7 @@ export function DesignerSidebar({
 }: DesignerSidebarProps) {
   const isRight = side === "right";
   const defaultWidth = isRight ? 280 : 260;
-  const actualMinWidth = minWidth ?? (isRight ? 240 : 200);
+  const actualMinWidth = minWidth ?? 240;
   const actualMaxWidth = maxWidth ?? 650;
 
   const [internalWidth, setInternalWidth] = React.useState(() => {
@@ -211,6 +216,8 @@ export function DesignerSidebar({
   });
 
   const currentWidth = width ?? internalWidth;
+  const sidebarRef = React.useRef<HTMLDivElement>(null);
+  const rafRef = React.useRef<number | null>(null);
   const isDragging = React.useRef(false);
 
   const handleMouseDown = React.useCallback(
@@ -221,26 +228,43 @@ export function DesignerSidebar({
       document.body.style.userSelect = "none";
 
       const startX = e.clientX;
-      const startWidth = currentWidth;
+      const startWidth = sidebarRef.current?.getBoundingClientRect().width ?? currentWidth;
 
-      const handleMouseMove = (e: MouseEvent) => {
+      const handleMouseMove = (moveEvent: MouseEvent) => {
         if (!isDragging.current) return;
-        const delta = isRight ? startX - e.clientX : e.clientX - startX;
+        const delta = isRight ? startX - moveEvent.clientX : moveEvent.clientX - startX;
         const newWidth = Math.min(Math.max(startWidth + delta, actualMinWidth), actualMaxWidth);
-        setInternalWidth(newWidth);
-        onWidthChange?.(newWidth);
+
+        if (rafRef.current !== null) {
+          cancelAnimationFrame(rafRef.current);
+        }
+        rafRef.current = requestAnimationFrame(() => {
+          if (sidebarRef.current) {
+            sidebarRef.current.style.setProperty("--sidebar-width", `${newWidth}px`);
+          }
+          rafRef.current = null;
+        });
       };
 
-      const handleMouseUp = (e: MouseEvent) => {
+      const handleMouseUp = (upEvent: MouseEvent) => {
         if (!isDragging.current) return;
         isDragging.current = false;
+        if (rafRef.current !== null) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = null;
+        }
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
         document.removeEventListener("mousemove", handleMouseMove);
         document.removeEventListener("mouseup", handleMouseUp);
 
-        const delta = isRight ? startX - e.clientX : e.clientX - startX;
+        const delta = isRight ? startX - upEvent.clientX : upEvent.clientX - startX;
         const finalWidth = Math.min(Math.max(startWidth + delta, actualMinWidth), actualMaxWidth);
+        if (sidebarRef.current) {
+          sidebarRef.current.style.setProperty("--sidebar-width", `${finalWidth}px`);
+        }
+        setInternalWidth(finalWidth);
+        onWidthChange?.(finalWidth);
         localStorage.setItem(`vela-resize-designer-${side}`, finalWidth.toString());
       };
 
@@ -466,12 +490,14 @@ class CustomButton extends StatelessWidget {
   // Right sidebar stays clean and simple
   if (isRight) {
     return (
-      <aside
-        data-slot="designer-sidebar"
+      <Sidebar
+        ref={sidebarRef}
+        side="right"
+        collapsible="none"
         data-side="right"
-        style={{ width: currentWidth }}
+        style={{ "--sidebar-width": `${currentWidth}px` } as React.CSSProperties}
         className={cn(
-          "relative h-full shrink-0 flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-200 select-none z-20",
+          "relative shrink-0 select-none z-20",
           !open && "hidden",
           className
         )}
@@ -486,19 +512,21 @@ class CustomButton extends StatelessWidget {
           <div className="h-full w-0.5 bg-transparent group-hover:bg-primary/50 group-active:bg-primary transition-colors" />
         </div>
 
-        <div className="h-9 px-3 flex flex-row items-center justify-between shrink-0">
+        <SidebarHeader className="h-9 px-3 py-0 flex-row items-center justify-between shrink-0 gap-0">
           <div className="flex items-center gap-2 min-w-0">
             {icon || <SlidersHorizontal className="size-3.5 text-primary shrink-0" />}
             <span className="text-xs font-semibold text-foreground truncate tracking-tight">
               {title || "Propiedades"}
             </span>
           </div>
-        </div>
+        </SidebarHeader>
 
-        <ScrollArea className="flex-1 min-h-0" viewportClassName="p-2">
-          {children}
-        </ScrollArea>
-      </aside>
+        <SidebarContent className="gap-0 overflow-hidden">
+          <ScrollArea className="flex-1 min-h-0" viewportClassName="p-2">
+            {children}
+          </ScrollArea>
+        </SidebarContent>
+      </Sidebar>
     );
   }
 
@@ -525,12 +553,14 @@ class CustomButton extends StatelessWidget {
   ];
 
   return (
-    <aside
-      data-slot="designer-sidebar"
+    <Sidebar
+      ref={sidebarRef}
+      side="left"
+      collapsible="none"
       data-side="left"
-      style={{ width: currentWidth }}
+      style={{ "--sidebar-width": `${currentWidth}px` } as React.CSSProperties}
       className={cn(
-        "relative h-full shrink-0 flex flex-row bg-sidebar text-sidebar-foreground transition-all duration-200 select-none z-20",
+        "relative shrink-0 flex-row select-none z-20",
         !open && "hidden",
         className
       )}
@@ -1158,6 +1188,6 @@ class CustomButton extends StatelessWidget {
           </div>
         </ScrollArea>
       </div>
-    </aside>
+    </Sidebar>
   );
 }

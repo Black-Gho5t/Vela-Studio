@@ -150,6 +150,9 @@ interface DesignerCanvasProps {
   onSelectFrameId?: (id: string) => void;
   selectedElementId?: string;
   onSelectElementId?: (id: string) => void;
+  scale?: number;
+  onScaleChange?: (scale: number) => void;
+  fitRequestCount?: number;
 }
 
 export function DesignerCanvas({
@@ -167,9 +170,30 @@ export function DesignerCanvas({
   onSelectFrameId,
   selectedElementId: externalSelectedElementId,
   onSelectElementId,
+  scale: externalScale,
+  onScaleChange,
+  fitRequestCount,
 }: DesignerCanvasProps) {
   const viewportRef = React.useRef<HTMLDivElement>(null);
-  const [scale, setScale] = React.useState(1);
+  const [internalScale, setInternalScale] = React.useState(1);
+  const scale = externalScale ?? internalScale;
+  const scaleRef = React.useRef(scale);
+  scaleRef.current = scale;
+
+  const updateScale = React.useCallback(
+    (nextOrUpdater: number | ((prev: number) => number)) => {
+      const next =
+        typeof nextOrUpdater === "function"
+          ? nextOrUpdater(scaleRef.current)
+          : nextOrUpdater;
+      const clamped = Math.min(MAX_SCALE, Math.max(MIN_SCALE, next));
+      if (externalScale === undefined) {
+        setInternalScale(clamped);
+      }
+      onScaleChange?.(clamped);
+    },
+    [externalScale, onScaleChange]
+  );
   const [showRulers, setShowRulers] = React.useState(true);
   const [internalActiveTool, setInternalActiveTool] = React.useState<DesignerTool>("select");
   const [internalFrames, setInternalFrames] = React.useState<CanvasDeviceFrame[]>(DEFAULT_FRAMES);
@@ -218,6 +242,23 @@ export function DesignerCanvas({
     });
     return () => cancelAnimationFrame(frame);
   }, [centerArtboard]);
+
+  // Fit-to-viewport when requested externally
+  React.useEffect(() => {
+    if (!fitRequestCount) return;
+    const viewport = viewportRef.current;
+    const targetFrame = frames.find((f) => f.id === selectedFrameId) || frames[0];
+    if (viewport && targetFrame) {
+      const availW = Math.max(viewport.clientWidth - 120, 200);
+      const availH = Math.max(viewport.clientHeight - 140, 200);
+      const fit = Math.min(availW / targetFrame.width, availH / targetFrame.height, 1);
+      const rounded = Math.max(MIN_SCALE, Math.min(MAX_SCALE, Math.round(fit * 20) / 20));
+      updateScale(rounded);
+    } else {
+      updateScale(1);
+    }
+    centerArtboard(true);
+  }, [fitRequestCount, frames, selectedFrameId, updateScale, centerArtboard]);
 
   const deleteFrame = React.useCallback(
     (frameId: string) => {
@@ -450,7 +491,7 @@ export function DesignerCanvas({
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        setScale((prev) => {
+        updateScale((prev) => {
           const next = Math.round((prev + delta) * 10) / 10;
           return Math.min(MAX_SCALE, Math.max(MIN_SCALE, next));
         });
@@ -461,7 +502,7 @@ export function DesignerCanvas({
     return () => {
       viewport.removeEventListener("wheel", handleWheel);
     };
-  }, []);
+  }, [updateScale]);
 
   // Pointer drag for canvas panning (Middle click, Space + Left click, or Hand tool)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1058,14 +1099,11 @@ export function DesignerCanvas({
         className="h-full w-full"
         viewportClassName={cn("relative outline-none", cursorClass)}
       >
-        {/* Infinite 2D Surface with dot grid */}
+        {/* Infinite 2D Surface */}
         <div
           style={{
             width: `${CANVAS_SIZE}px`,
             height: `${CANVAS_SIZE}px`,
-            backgroundImage:
-              "radial-gradient(var(--color-border) 1.5px, transparent 1.5px)",
-            backgroundSize: "24px 24px",
           }}
           className="relative min-w-[4000px] min-h-[4000px]"
           onDragOver={handleDragOver}

@@ -100,7 +100,6 @@ export function DesignerRulers({
 
     const isDark = document.documentElement.classList.contains("dark");
     const bgColor = isDark ? "rgba(18, 18, 20, 0.95)" : "rgba(255, 255, 255, 0.95)";
-    const highlightBg = isDark ? "rgba(14, 165, 233, 0.09)" : "rgba(14, 165, 233, 0.08)";
     const tickColor = isDark ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.15)";
     const majorTickColor = isDark ? "rgba(255, 255, 255, 0.35)" : "rgba(0, 0, 0, 0.35)";
     const textColor = isDark ? "rgba(255, 255, 255, 0.6)" : "rgba(0, 0, 0, 0.65)";
@@ -118,10 +117,7 @@ export function DesignerRulers({
     const frameY = activeFrame?.y ?? -artboardH / 2;
 
     const artboardXStart = 2000 + frameX * scale;
-    const artboardXEnd = artboardXStart + artboardW * scale;
-
     const artboardYStart = 2000 + frameY * scale;
-    const artboardYEnd = artboardYStart + artboardH * scale;
 
     const { major, minor } = getRulerStep(scale);
 
@@ -136,14 +132,6 @@ export function DesignerRulers({
     // ── 1. DRAW HORIZONTAL RULER ──────────────────────────────────────────
     hCtx.fillStyle = bgColor;
     hCtx.fillRect(0, 0, hWidth, RULER_SIZE);
-
-    // Active artboard span highlight
-    const screenArtboardX1 = Math.max(0, artboardXStart - scrollLeft - hOffset);
-    const screenArtboardX2 = Math.min(hWidth, artboardXEnd - scrollLeft - hOffset);
-    if (screenArtboardX2 > screenArtboardX1) {
-      hCtx.fillStyle = highlightBg;
-      hCtx.fillRect(screenArtboardX1, 0, screenArtboardX2 - screenArtboardX1, RULER_SIZE);
-    }
 
     // Calculate visible design range for X
     const minVisibleDesignX = Math.floor(((scrollLeft + hOffset - artboardXStart) / scale) / minor) * minor;
@@ -190,14 +178,6 @@ export function DesignerRulers({
     // ── 2. DRAW VERTICAL RULER ────────────────────────────────────────────
     vCtx.fillStyle = bgColor;
     vCtx.fillRect(0, 0, RULER_SIZE, vHeight);
-
-    // Active artboard span highlight
-    const screenArtboardY1 = Math.max(0, artboardYStart - scrollTop - vOffset);
-    const screenArtboardY2 = Math.min(vHeight, artboardYEnd - scrollTop - vOffset);
-    if (screenArtboardY2 > screenArtboardY1) {
-      vCtx.fillStyle = highlightBg;
-      vCtx.fillRect(0, screenArtboardY1, RULER_SIZE, screenArtboardY2 - screenArtboardY1);
-    }
 
     // Calculate visible design range for Y
     const minVisibleDesignY = Math.floor(((scrollTop + vOffset - artboardYStart) / scale) / minor) * minor;

@@ -16,8 +16,6 @@ import {
   Layers,
   Square,
   FolderOpen,
-  FolderX,
-  Smartphone,
   User,
   Users,
   HelpCircle,
@@ -192,23 +190,6 @@ export function WorkspaceTitlebar({
     }
   };
 
-  const handleNewFile = () => {
-    const newTabId = `untitled-${Date.now()}`;
-    useWorkspaceStore.getState().addTab({
-      id: newTabId,
-      name: "untitled.dart",
-      path: "untitled.dart",
-      content:
-        "// New Dart File\nimport 'package:flutter/material.dart';\n\nvoid main() {\n  runApp(const MyApp());\n}\n\nclass MyApp extends StatelessWidget {\n  const MyApp({super.key});\n\n  @override\n  Widget build(BuildContext context) {\n    return const MaterialApp(\n      home: Scaffold(\n        body: Center(\n          child: Text('Hello, Vela!'),\n        ),\n      ),\n    );\n  }\n}\n",
-      isActive: true,
-      isModified: true,
-    });
-  };
-
-  const handleCloseFolder = () => {
-    useWorkspaceStore.getState().closeFolder();
-  };
-
   React.useEffect(() => {
     let unlistenClose: (() => void) | null = null;
     let unlistenOpen: (() => void) | null = null;
@@ -253,65 +234,10 @@ export function WorkspaceTitlebar({
         className="absolute inset-0 z-0 pointer-events-auto"
       />
 
-      {/* ── Left: File Menu + Project info ── */}
+      {/* ── Left: Project info ── */}
       <div data-tauri-drag-region className="relative flex items-center gap-3 min-w-0 z-10">
-        {/* File Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <button
-                type="button"
-                className="flex items-center gap-1 h-6 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors cursor-pointer select-none outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <span>File</span>
-                <ChevronDown className="size-2.5 opacity-50 shrink-0" />
-              </button>
-            }
-          />
-          <DropdownMenuContent align="start" sideOffset={6} className="w-56 p-1 text-xs">
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                onClick={() => useWorkspaceStore.getState().setFlutterWizardOpen(true)}
-                className="cursor-pointer gap-2"
-              >
-                <Smartphone className="size-3.5 text-primary" />
-                <span>New Flutter Project…</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={handleNewFile}
-                className="cursor-pointer gap-2"
-              >
-                <FileCode2 className="size-3.5 text-muted-foreground" />
-                <span>New File</span>
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                onClick={handleOpenFolder}
-                className="cursor-pointer gap-2"
-              >
-                <FolderOpen className="size-3.5 text-muted-foreground" />
-                <span>Open Folder…</span>
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                disabled={!projectPath}
-                onClick={handleCloseFolder}
-                className="cursor-pointer gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
-              >
-                <FolderX className="size-3.5" />
-                <span>Close Folder</span>
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
         {projectName ? (
           <>
-            <div className="h-3 w-px bg-foreground/10" />
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-xs font-medium text-foreground truncate max-w-[110px]" title={projectName}>
                 {projectName}
