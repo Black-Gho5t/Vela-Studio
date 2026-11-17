@@ -37,6 +37,7 @@ import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
+  SidebarProvider,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "../model/workspace.store";
@@ -48,7 +49,7 @@ import {
 } from "../model/flutter-theme-parser";
 import { resolveAbsoluteFilePath } from "../model/designer-frame-file";
 
-export type DesignerLeftRailTab = "layers" | "files" | "components" | "variables";
+export type DesignerLeftRailTab = "layers" | "screens" | "files" | "components" | "variables";
 export type { ColorVariableItem };
 
 export interface FlutterComponentItem {
@@ -62,6 +63,8 @@ export interface FlutterComponentItem {
 
 interface DesignerSidebarProps extends React.HTMLAttributes<HTMLDivElement> {
   side?: "left" | "right";
+  variant?: "sidebar" | "floating" | "inset";
+  floatingHeader?: React.ReactNode;
   open?: boolean;
   onToggleMinimize?: () => void;
   title?: string;
@@ -183,6 +186,8 @@ const DRAGGABLE_COMPONENTS = [
 
 export function DesignerSidebar({
   side = "left",
+  variant = "sidebar",
+  floatingHeader,
   open = true,
   onToggleMinimize,
   title,
@@ -292,6 +297,11 @@ export function DesignerSidebar({
   const [isComponentsInitialized, setIsComponentsInitialized] = React.useState(false);
   const [isInitializingComponents, setIsInitializingComponents] = React.useState(false);
   const [copiedCompId, setCopiedCompId] = React.useState<string | null>(null);
+
+  const detectedScreens = useWorkspaceStore((s) => s.detectedScreens) || [];
+  const isScanningScreens = useWorkspaceStore((s) => s.isScanningScreens) || false;
+  const scanScreens = useWorkspaceStore((s) => s.scanScreens);
+  const projectPath = useWorkspaceStore((s) => s.projectPath);
 
   const refreshThemeVariables = React.useCallback(async () => {
     setIsLoadingTheme(true);
@@ -489,15 +499,18 @@ class CustomButton extends StatelessWidget {
 
   // Right sidebar stays clean and simple
   if (isRight) {
-    return (
+    const rightSidebarContent = (
       <Sidebar
         ref={sidebarRef}
         side="right"
-        collapsible="none"
+        variant={variant}
+        collapsible={variant === "floating" ? "offcanvas" : "none"}
         data-side="right"
         style={{ "--sidebar-width": `${currentWidth}px` } as React.CSSProperties}
         className={cn(
-          "relative shrink-0 select-none z-20",
+          variant === "floating"
+            ? "!absolute top-8 bottom-4 data-[side=right]:right-8 right-8 h-auto p-0 z-40 transition-none select-none [&_[data-slot=sidebar-inner]]:rounded-2xl [&_[data-slot=sidebar-inner]]:border [&_[data-slot=sidebar-inner]]:border-border/80 [&_[data-slot=sidebar-inner]]:bg-background/90 [&_[data-slot=sidebar-inner]]:backdrop-blur-xl [&_[data-slot=sidebar-inner]]:shadow-xl [&_[data-slot=sidebar-inner]]:ring-0"
+            : "relative shrink-0 select-none z-20",
           !open && "hidden",
           className
         )}
@@ -511,6 +524,12 @@ class CustomButton extends StatelessWidget {
         >
           <div className="h-full w-0.5 bg-transparent group-hover:bg-primary/50 group-active:bg-primary transition-colors" />
         </div>
+
+        {variant === "floating" && floatingHeader && (
+          <div className="flex items-center justify-start gap-1 h-9 px-3 border-b border-border/50 shrink-0">
+            {floatingHeader}
+          </div>
+        )}
 
         <SidebarHeader className="h-9 px-3 py-0 flex-row items-center justify-between shrink-0 gap-0">
           <div className="flex items-center gap-2 min-w-0">
@@ -528,10 +547,33 @@ class CustomButton extends StatelessWidget {
         </SidebarContent>
       </Sidebar>
     );
+
+    if (variant === "floating") {
+      if (!open) return null;
+      return (
+        <div className="contents [&_[data-slot=sidebar-gap]]:hidden">
+          <SidebarProvider
+            open={true}
+            className="contents"
+            style={{ "--sidebar-width": `${currentWidth}px` } as React.CSSProperties}
+          >
+            {rightSidebarContent}
+          </SidebarProvider>
+        </div>
+      );
+    }
+
+    return rightSidebarContent;
   }
 
-  // Left sidebar with Primary Rail (Capas / Componentes / Variables)
+  // Left sidebar with Primary Rail (Screens / Capas / Componentes / Variables)
   const leftRailItems = [
+    {
+      id: "screens" as const,
+      label: "Screens",
+      description: "Pantallas detectadas en el proyecto",
+      icon: Smartphone,
+    },
     {
       id: "layers" as const,
       label: "Capas",
@@ -636,6 +678,13 @@ class CustomButton extends StatelessWidget {
                 <Layers className="size-3.5 text-primary shrink-0" />
                 <span className="text-xs font-semibold text-foreground truncate tracking-tight">
                   Capas y Widgets
+                </span>
+              </>
+            ) : activeRailTab === "screens" ? (
+              <>
+                <Smartphone className="size-3.5 text-primary shrink-0" />
+                <span className="text-xs font-semibold text-foreground truncate tracking-tight">
+                  Screens ({detectedScreens.length})
                 </span>
               </>
             ) : activeRailTab === "components" ? (
@@ -885,6 +934,108 @@ class CustomButton extends StatelessWidget {
                             </div>
                           )}
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : activeRailTab === "screens" ? (
+              /* ── Pantallas Detectadas en el Proyecto ── */
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground">
+                    Pantallas ({detectedScreens.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => scanScreens()}
+                    disabled={!projectPath || isScanningScreens}
+                    title="Re-escanear pantallas del proyecto"
+                    className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-40 transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className={cn("size-3", isScanningScreens && "animate-spin")} />
+                    <span>Escanear</span>
+                  </button>
+                </div>
+
+                {!projectPath ? (
+                  <div className="flex flex-col items-center justify-center p-6 text-center border border-dashed border-sidebar-border/80 rounded-lg bg-sidebar-accent/10 space-y-2">
+                    <div className="size-8 rounded-full bg-muted/60 flex items-center justify-center text-muted-foreground">
+                      <Smartphone className="size-4" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-medium text-foreground">Sin proyecto abierto</span>
+                      <p className="text-[10px] text-muted-foreground leading-normal">
+                        Abre un proyecto Flutter para detectar sus pantallas.
+                      </p>
+                    </div>
+                  </div>
+                ) : isScanningScreens && detectedScreens.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-6 text-center text-[11px] text-muted-foreground animate-pulse">
+                    Escaneando pantallas en lib/...
+                  </div>
+                ) : detectedScreens.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-6 text-center border border-dashed border-sidebar-border/80 rounded-lg bg-sidebar-accent/10 space-y-2">
+                    <div className="size-8 rounded-full bg-muted/60 flex items-center justify-center text-muted-foreground">
+                      <Smartphone className="size-4" />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-xs font-medium text-foreground">Sin pantallas detectadas</span>
+                      <p className="text-[10px] text-muted-foreground leading-normal">
+                        No se encontraron pantallas con Scaffold o registradas en el router dentro de lib/.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {detectedScreens.map((screen) => {
+                      const matchedFrame = frames.find(
+                        (f) =>
+                          f.id === screen.id ||
+                          f.filePath === screen.filePath ||
+                          f.fileName === screen.fileName
+                      );
+                      const isSelected =
+                        selectedFrameId === screen.id ||
+                        (matchedFrame && selectedFrameId === matchedFrame.id);
+
+                      return (
+                        <button
+                          key={screen.id}
+                          type="button"
+                          onClick={() => onSelectFrameId?.(matchedFrame?.id || screen.id)}
+                          className={cn(
+                            "w-full flex flex-col gap-1 p-2 rounded-lg border text-left transition-all cursor-pointer group",
+                            isSelected
+                              ? "border-primary/50 bg-primary/10"
+                              : "border-sidebar-border/60 bg-sidebar-accent/15 hover:bg-sidebar-accent/40"
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-2 w-full">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <Smartphone
+                                className={cn(
+                                  "size-3.5 shrink-0",
+                                  isSelected ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                                )}
+                              />
+                              <span className="text-xs font-medium text-foreground truncate">
+                                {screen.name}
+                              </span>
+                            </div>
+                            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-muted/70 text-muted-foreground shrink-0">
+                              {screen.elements.length}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2 w-full pl-5">
+                            <span className="text-[10px] font-mono text-muted-foreground truncate">
+                              {screen.relativePath}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground/70 shrink-0">
+                              {screen.widgetType}
+                            </span>
+                          </div>
+                        </button>
                       );
                     })}
                   </div>

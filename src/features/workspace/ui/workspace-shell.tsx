@@ -303,9 +303,8 @@ export function WorkspaceShell() {
 
   const handleSelectTool = (tool: DesignerTool) => {
     setDesignerActiveTool(tool);
-    if (tool === "frame") {
+    if (tool === "frame" && !designerSidebarsMinimized) {
       setDesignerRightSidebarOpen(true);
-      setDesignerSidebarsMinimized(false);
     }
   };
 
@@ -853,148 +852,168 @@ export function WorkspaceShell() {
           </div>
 
           {/* Right Designer Sidebar (Frame Properties / Presets) */}
-          <DesignerSidebar
-            side="right"
-            open={!designerSidebarsMinimized && designerRightSidebarOpen}
-            width={designerRightWidth}
-            onWidthChange={setDesignerRightWidth}
-            title={
-              designerActiveTool === "frame"
-                ? "Marco"
-                : selectedFrame
-                  ? selectedFrame.name
-                  : "Propiedades"
-            }
-            icon={
-              designerActiveTool === "frame" ? (
-                <Frame className="size-3.5 text-primary shrink-0" />
-              ) : selectedFrame ? (
-                <Smartphone className="size-3.5 text-primary shrink-0" />
-              ) : (
-                <SlidersHorizontal className="size-3.5 text-primary shrink-0" />
-              )
-            }
-          >
-            {designerActiveTool === "frame" ? (
-              <DesignerFramePresets onSelectPreset={handleAddFramePreset} />
-            ) : selectedFrame ? (
-              <DesignerFrameProperties
-                frame={selectedFrame}
-                allFrames={designerFrames}
-                onChangeFrame={handleUpdateFrame}
-                selectedElementId={selectedElementId}
-                onSelectElementId={setSelectedElementId}
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center p-6 text-center text-muted-foreground/60 text-xs">
-                Selecciona un marco para inspeccionar sus propiedades
-              </div>
-            )}
-          </DesignerSidebar>
+          {(() => {
+            const isRightFloating = designerSidebarsMinimized && designerActiveTool === "frame";
+            const rightCapsuleControls = (
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 h-6 rounded-lg px-1.5 text-xs font-medium tabular-nums text-foreground hover:bg-muted/80 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        title="Opciones de zoom"
+                      >
+                        <span>{Math.round(designerZoom * 100)}%</span>
+                        <ChevronDown className="size-3 text-muted-foreground shrink-0" />
+                      </button>
+                    }
+                  />
+                  <DropdownMenuContent align="start" sideOffset={8} className="w-52 p-1 text-xs">
+                    <DropdownMenuItem
+                      onClick={() =>
+                        setDesignerZoom((z) => Math.min(2, Math.round((z + 0.1) * 10) / 10))
+                      }
+                      className="cursor-pointer"
+                    >
+                      <span>Ampliar</span>
+                      <DropdownMenuShortcut>⌘+</DropdownMenuShortcut>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        setDesignerZoom((z) => Math.max(0.25, Math.round((z - 0.1) * 10) / 10))
+                      }
+                      className="cursor-pointer"
+                    >
+                      <span>Acercar</span>
+                      <DropdownMenuShortcut>⌘−</DropdownMenuShortcut>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setFitZoomCount((c) => c + 1)}
+                      className="cursor-pointer"
+                    >
+                      <span>Zoom para ajustar</span>
+                      <DropdownMenuShortcut>⇧1</DropdownMenuShortcut>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setDesignerZoom(0.5)}
+                      className="cursor-pointer"
+                    >
+                      <span>Zoom al 50 %</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setDesignerZoom(1)}
+                      className="cursor-pointer"
+                    >
+                      <span>Zoom al 100 %</span>
+                      <DropdownMenuShortcut>⌘0</DropdownMenuShortcut>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setDesignerZoom(2)}
+                      className="cursor-pointer"
+                    >
+                      <span>Zoom al 200 %</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-          {/* Floating Header Pills (smooth fade & slide when sidebars are minimized, with margin to not overlap rulers) */}
-          <div
-            className={cn(
-              "pointer-events-none absolute inset-x-0 top-8 z-30 flex items-center justify-between px-8 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-              designerSidebarsMinimized
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 -translate-y-2 pointer-events-none"
-            )}
-          >
-            {/* Left Pill */}
-            <div className="pointer-events-auto flex items-center justify-between gap-2 h-9 w-[220px] px-3 rounded-2xl border border-border/80 bg-background/85 backdrop-blur-xl shadow-xl text-foreground select-none">
-              <div className="flex items-center gap-2 min-w-0">
-                <Layers className="size-4 text-primary shrink-0" />
-                <span className="text-xs font-medium truncate">
-                  {projectName || "Vela Studio"}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setDesignerSidebarsMinimized(false);
-                  setDesignerSidebarOpen(true);
-                  setDesignerRightSidebarOpen(true);
-                }}
-                title="Maximizar sidebars"
-                className="flex size-6 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
-              >
-                <PanelLeft className="size-3.5" />
-              </button>
-            </div>
+                <button
+                  type="button"
+                  title="Play"
+                  className="flex size-6 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors cursor-pointer"
+                >
+                  <Play className="size-3.5" />
+                </button>
+              </>
+            );
 
-            {/* Right Pill */}
-            <div className="pointer-events-auto flex items-center justify-start gap-1 h-9 w-[220px] px-3 rounded-2xl border border-border/80 bg-background/85 backdrop-blur-xl shadow-xl text-foreground select-none">
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
+            return (
+              <>
+                <DesignerSidebar
+                  side="right"
+                  variant={isRightFloating ? "floating" : "sidebar"}
+                  floatingHeader={rightCapsuleControls}
+                  open={isRightFloating || (!designerSidebarsMinimized && designerRightSidebarOpen)}
+                  width={designerRightWidth}
+                  onWidthChange={setDesignerRightWidth}
+                  title={
+                    designerActiveTool === "frame"
+                      ? "Screen"
+                      : selectedFrame
+                        ? selectedFrame.name
+                        : "Propiedades"
+                  }
+                  icon={
+                    designerActiveTool === "frame" ? (
+                      <Frame className="size-3.5 text-primary shrink-0" />
+                    ) : selectedFrame ? (
+                      <Smartphone className="size-3.5 text-primary shrink-0" />
+                    ) : (
+                      <SlidersHorizontal className="size-3.5 text-primary shrink-0" />
+                    )
+                  }
+                >
+                  {designerActiveTool === "frame" ? (
+                    <DesignerFramePresets onSelectPreset={handleAddFramePreset} />
+                  ) : selectedFrame ? (
+                    <DesignerFrameProperties
+                      frame={selectedFrame}
+                      allFrames={designerFrames}
+                      onChangeFrame={handleUpdateFrame}
+                      selectedElementId={selectedElementId}
+                      onSelectElementId={setSelectedElementId}
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center p-6 text-center text-muted-foreground/60 text-xs">
+                      Selecciona un marco para inspeccionar sus propiedades
+                    </div>
+                  )}
+                </DesignerSidebar>
+
+                {/* Floating Header Pills (smooth fade & slide when sidebars are minimized, with margin to not overlap rulers) */}
+                <div
+                  className={cn(
+                    "pointer-events-none absolute inset-x-0 top-8 z-30 flex items-center justify-between px-8 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                    designerSidebarsMinimized
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 -translate-y-2 pointer-events-none"
+                  )}
+                >
+                  {/* Left Pill */}
+                  <div className="pointer-events-auto flex items-center justify-between gap-2 h-9 w-[220px] px-3 rounded-2xl border border-border/80 bg-background/85 backdrop-blur-xl shadow-xl text-foreground select-none">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Layers className="size-4 text-primary shrink-0" />
+                      <span className="text-xs font-medium truncate">
+                        {projectName || "Vela Studio"}
+                      </span>
+                    </div>
                     <button
                       type="button"
-                      className="flex items-center gap-1 h-6 rounded-lg px-1.5 text-xs font-medium tabular-nums text-foreground hover:bg-muted/80 transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      title="Opciones de zoom"
+                      onClick={() => {
+                        setDesignerSidebarsMinimized(false);
+                        setDesignerSidebarOpen(true);
+                        setDesignerRightSidebarOpen(true);
+                      }}
+                      title="Maximizar sidebars"
+                      className="flex size-6 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
                     >
-                      <span>{Math.round(designerZoom * 100)}%</span>
-                      <ChevronDown className="size-3 text-muted-foreground shrink-0" />
+                      <PanelLeft className="size-3.5" />
                     </button>
-                  }
-                />
-                <DropdownMenuContent align="start" sideOffset={8} className="w-52 p-1 text-xs">
-                  <DropdownMenuItem
-                    onClick={() =>
-                      setDesignerZoom((z) => Math.min(2, Math.round((z + 0.1) * 10) / 10))
-                    }
-                    className="cursor-pointer"
-                  >
-                    <span>Ampliar</span>
-                    <DropdownMenuShortcut>⌘+</DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      setDesignerZoom((z) => Math.max(0.25, Math.round((z - 0.1) * 10) / 10))
-                    }
-                    className="cursor-pointer"
-                  >
-                    <span>Acercar</span>
-                    <DropdownMenuShortcut>⌘−</DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setFitZoomCount((c) => c + 1)}
-                    className="cursor-pointer"
-                  >
-                    <span>Zoom para ajustar</span>
-                    <DropdownMenuShortcut>⇧1</DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setDesignerZoom(0.5)}
-                    className="cursor-pointer"
-                  >
-                    <span>Zoom al 50 %</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setDesignerZoom(1)}
-                    className="cursor-pointer"
-                  >
-                    <span>Zoom al 100 %</span>
-                    <DropdownMenuShortcut>⌘0</DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setDesignerZoom(2)}
-                    className="cursor-pointer"
-                  >
-                    <span>Zoom al 200 %</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </div>
 
-              <button
-                type="button"
-                title="Play"
-                className="flex size-6 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors cursor-pointer"
-              >
-                <Play className="size-3.5" />
-              </button>
-            </div>
-          </div>
+                  {/* Right Pill (hidden when expanded into floating sidebar) */}
+                  <div
+                    className={cn(
+                      "pointer-events-auto flex items-center justify-start gap-1 h-9 w-[220px] px-3 rounded-2xl border border-border/80 bg-background/85 backdrop-blur-xl shadow-xl text-foreground select-none",
+                      isRightFloating && "opacity-0 pointer-events-none"
+                    )}
+                  >
+                    {rightCapsuleControls}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 

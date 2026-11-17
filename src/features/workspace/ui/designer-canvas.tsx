@@ -71,7 +71,7 @@ export type ElementAlignment =
 
 export interface CanvasWidgetElement {
   id: string;
-  type: "button" | "text" | "card" | "input" | "container" | "icon";
+  type: "button" | "text" | "card" | "input" | "container" | "icon" | "appbar" | "fab";
   name: string;
   x: number;
   y: number;
@@ -901,9 +901,63 @@ export function DesignerCanvas({
         )}
 
         {frame.elements && frame.elements.length > 0 ? (
-          frame.elements.map((el) => {
+          (() => {
+            const hasAppBar = frame.elements.some((item) => item.type === "appbar" && item.isVisible !== false);
+            return frame.elements.map((el) => {
             if (el.isVisible === false) return null;
             const isSelectedEl = el.id === selectedElementId;
+
+            if (el.type === "appbar") {
+              return (
+                <div
+                  key={el.id}
+                  onClick={(e) => {
+                    if (activeTool === "hand") return;
+                    e.stopPropagation();
+                    setSelectedFrameId(frame.id);
+                    setSelectedElementId(el.id);
+                  }}
+                  style={{
+                    backgroundColor: el.color || "#EADDFF",
+                    color: el.textColor || "#1D1B20",
+                  }}
+                  className={cn(
+                    "absolute top-0 inset-x-0 h-14 px-4 flex items-center justify-center select-none cursor-pointer z-20 shadow-2xs",
+                    isSelectedEl ? "ring-2 ring-primary ring-inset" : "hover:ring-1 hover:ring-primary/50"
+                  )}
+                >
+                  <span className="text-sm font-medium truncate">
+                    {el.label || frame.name}
+                  </span>
+                </div>
+              );
+            }
+
+            if (el.type === "fab") {
+              return (
+                <button
+                  key={el.id}
+                  type="button"
+                  onClick={(e) => {
+                    if (activeTool === "hand") return;
+                    e.stopPropagation();
+                    setSelectedFrameId(frame.id);
+                    setSelectedElementId(el.id);
+                  }}
+                  style={{
+                    backgroundColor: el.color || "#EADDFF",
+                    color: el.textColor || "#21005D",
+                  }}
+                  className={cn(
+                    "absolute bottom-5 right-5 size-14 rounded-2xl shadow-lg flex items-center justify-center select-none cursor-pointer z-20 transition-shadow",
+                    isSelectedEl ? "ring-2 ring-primary ring-offset-1" : "hover:ring-1 hover:ring-primary/60"
+                  )}
+                >
+                  <Plus className="size-6" />
+                </button>
+              );
+            }
+
             const elWidth = el.widthMode === "fill" ? (isStack ? frame.width - 32 : undefined) : el.width;
             const elHeight = el.height;
             const paddingStyle = el.padding
@@ -936,7 +990,7 @@ export function DesignerCanvas({
                 )}
                 style={{
                   left: isStack ? `${el.x}px` : undefined,
-                  top: isStack ? `${el.y}px` : undefined,
+                  top: isStack ? `${el.y + (hasAppBar ? 56 : 0)}px` : undefined,
                   width: elWidth ? `${elWidth}px` : undefined,
                   height: elHeight ? `${elHeight}px` : undefined,
                   ...paddingStyle,
@@ -974,7 +1028,7 @@ export function DesignerCanvas({
                     style={{
                       backgroundColor: el.color || undefined,
                       borderRadius: el.borderRadius !== undefined ? `${el.borderRadius}px` : undefined,
-                      color: el.textColor || undefined,
+                      color: el.textColor || (el.color ? "#FFFFFF" : undefined),
                       width: elWidth ? "100%" : undefined,
                       height: elHeight ? "100%" : undefined,
                     }}
@@ -990,12 +1044,12 @@ export function DesignerCanvas({
                 ) : el.type === "text" ? (
                   <div
                     style={{
-                      color: el.textColor || undefined,
+                      color: el.textColor || el.color || "#0F172A",
                       fontSize: el.fontSize ? `${el.fontSize}px` : undefined,
                       width: elWidth ? "100%" : undefined,
                       height: elHeight ? "100%" : undefined,
                     }}
-                    className="px-2 py-1 text-foreground font-semibold text-sm pointer-events-none whitespace-nowrap"
+                    className="px-2 py-1 font-semibold text-sm pointer-events-none whitespace-nowrap"
                   >
                     {el.label || "Texto"}
                   </div>
@@ -1055,7 +1109,8 @@ export function DesignerCanvas({
                 )}
               </div>
             );
-          })
+          });
+          })()
         ) : (
           <div className="h-full w-full flex flex-col items-center justify-center text-center p-4 text-muted-foreground/30 pointer-events-none select-none">
             <span className="text-[11px] font-medium text-muted-foreground/50">Lienzo vacío • Arrastra widgets aquí</span>

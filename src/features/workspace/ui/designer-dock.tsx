@@ -83,7 +83,7 @@ export function DesignerDock({
   }, [activeTool]);
 
   const FrameActiveIcon = isSectionActive || (!isFrameActive && lastFrameTool === "section") ? Section : Frame;
-  const frameActiveLabel = isSectionActive || (!isFrameActive && lastFrameTool === "section") ? "Sección (Shift+S)" : "Marco (F)";
+  const frameActiveLabel = isSectionActive || (!isFrameActive && lastFrameTool === "section") ? "Sección (Shift+S)" : "Screen (F)";
 
   // Shape tools state and last tool memory
   type ShapeToolType = "shape" | "ellipse" | "line" | "image";
@@ -254,8 +254,8 @@ export function DesignerDock({
                   "flex size-7 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-all duration-150 outline-none cursor-pointer shrink-0 mr-0.5",
                   isFrameMenuOpen && "bg-muted text-foreground"
                 )}
-                title="Desplegar opciones de Marco / Sección"
-                aria-label="Desplegar opciones de Marco / Sección"
+                title="Desplegar opciones de Screen / Sección"
+                aria-label="Desplegar opciones de Screen / Sección"
               />
             }
           >
@@ -277,7 +277,7 @@ export function DesignerDock({
                 <div className="flex items-center gap-2">
                   <Frame className="size-3.5" />
                   <div className="flex flex-col">
-                    <span>Marco</span>
+                    <span>Screen</span>
                     <span className="text-[10px] text-muted-foreground">Crear pantalla o contenedor</span>
                   </div>
                 </div>

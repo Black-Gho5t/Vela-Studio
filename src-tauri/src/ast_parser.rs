@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use tree_sitter::{Node, Parser};
+use std::collections::{HashMap, HashSet};
 use std::fs;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -1011,6 +1012,13 @@ fn detect_layouts_from_ast(
 
 /// Parses Dart source code and directly extracts elements and layout metadata for the Designer Canvas.
 pub fn parse_dart_to_canvas_data(source_code: &str) -> CanvasSyncResult {
+    parse_dart_to_canvas_data_with_props(source_code, None)
+}
+
+fn parse_dart_to_canvas_data_with_props(
+    source_code: &str,
+    prop_values: Option<&HashMap<String, String>>,
+) -> CanvasSyncResult {
     let mut layout_flow = "vertical".to_string();
     let mut screen_layout = "scaffold".to_string();
 
@@ -1028,9 +1036,150 @@ pub fn parse_dart_to_canvas_data(source_code: &str) -> CanvasSyncResult {
     let mut elements = Vec::new();
 
     if let Some(root) = root_ast {
-        fn collect_elements(node: &WidgetNode, elements: &mut Vec<CanvasWidgetElement>) {
+        fn parse_dart_color_hex(raw: &str) -> Option<String> {
+            let re = regex::Regex::new(r"Color\(\s*0[xX]([0-9a-fA-F]{8})\s*\)").ok()?;
+            let caps = re.captures(raw)?;
+            let hex8 = caps.get(1)?.as_str();
+            // 0xAARRGGBB -> #RRGGBB
+            Some(format!("#{}", &hex8[2..8].to_uppercase()))
+        }
+
+        fn parse_dart_style_number(raw: &str, key: &str) -> Option<f64> {
+            let pattern = format!(r"{}\s*:\s*([0-9]+(?:\.[0-9]+)?)", regex::escape(key));
+            let re = regex::Regex::new(&pattern).ok()?;
+            let caps = re.captures(raw)?;
+            caps.get(1)?.as_str().parse::<f64>().ok()
+        }
+
+        fn parse_dart_border_radius(raw: &str) -> Option<f64> {
+            let re = regex::Regex::new(r"BorderRadius\.circular\(\s*([0-9]+(?:\.[0-9]+)?)\s*\)").ok()?;
+            let caps = re.captures(raw)?;
+            caps.get(1)?.as_str().parse::<f64>().ok()
+        }
+
+        fn resolve_prop_text(raw: &str, prop_values: Option<&HashMap<String, String>>) -> Option<String> {
+            let trimmed = raw.trim();
+            if let Some(map) = prop_values {
+                if let Some(key) = trimmed.strip_prefix("widget.") {
+                    if let Some(val) = map.get(key) {
+                        return Some(val.clone());
+                    }
+                } else if let Some(val) = map.get(trimmed) {
+                    return Some(val.clone());
+                }
+            }
+            if !trimmed.starts_with("widget.") && !trimmed.is_empty() {
+                Some(trimmed.to_string())
+            } else {
+                None
+            }
+        }
+
+        fn extract_first_text_label(
+            node: &WidgetNode,
+            prop_values: Option<&HashMap<String, String>>,
+        ) -> Option<String> {
+            if node.r#type == "Text" {
+                if let Some(d) = node.props.get("data").and_then(|v| v.as_str()) {
+                    if let Some(resolved) = resolve_prop_text(d, prop_values) {
+                        return Some(resolved);
+                    }
+                }
+            }
+            if let Some(children) = &node.children {
+                for child in children {
+                    if let Some(found) = extract_first_text_label(child, prop_values) {
+                        return Some(found);
+                    }
+                }
+            }
+            None
+        }
+
+        fn collect_elements(
+            node: &WidgetNode,
+            elements: &mut Vec<CanvasWidgetElement>,
+            pos_override: Option<(f64, f64)>,
+            prop_values: Option<&HashMap<String, String>>,
+        ) {
+            if node.r#type == "AppBar" {
+                let title = extract_first_text_label(node, prop_values);
+                let bg = node
+                    .props
+                    .get("backgroundColor")
+                    .and_then(|v| v.as_str())
+                    .and_then(parse_dart_color_hex);
+                let clean_id = if !node.id.is_empty() {
+                    node.id.clone()
+                } else {
+                    format!("appbar-{}", elements.len() + 1)
+                };
+                elements.push(CanvasWidgetElement {
+                    id: clean_id,
+                    r#type: "appbar".to_string(),
+                    name: "AppBar".to_string(),
+                    label: title,
+                    x: 0.0,
+                    y: 0.0,
+                    color: bg,
+                    text_color: None,
+                    font_size: None,
+                    border_radius: None,
+                });
+                return;
+            }
+
+            if node.r#type == "FloatingActionButton" {
+                let bg = node
+                    .props
+                    .get("backgroundColor")
+                    .and_then(|v| v.as_str())
+                    .and_then(parse_dart_color_hex);
+                let clean_id = if !node.id.is_empty() {
+                    node.id.clone()
+                } else {
+                    format!("fab-{}", elements.len() + 1)
+                };
+                elements.push(CanvasWidgetElement {
+                    id: clean_id,
+                    r#type: "fab".to_string(),
+                    name: "FloatingActionButton".to_string(),
+                    label: Some("+".to_string()),
+                    x: 321.0,
+                    y: 780.0,
+                    color: bg,
+                    text_color: None,
+                    font_size: None,
+                    border_radius: Some(16.0),
+                });
+                return;
+            }
+
+            if node.r#type == "BottomNavigationBar" {
+                return;
+            }
+
+            if node.r#type == "Positioned" {
+                let left = node
+                    .props
+                    .get("left")
+                    .and_then(|v| v.as_str().and_then(|s| s.parse::<f64>().ok()).or_else(|| v.as_f64()))
+                    .unwrap_or(24.0);
+                let top = node
+                    .props
+                    .get("top")
+                    .and_then(|v| v.as_str().and_then(|s| s.parse::<f64>().ok()).or_else(|| v.as_f64()))
+                    .unwrap_or(24.0);
+                if let Some(children) = &node.children {
+                    for child in children {
+                        collect_elements(child, elements, Some((left, top)), prop_values);
+                    }
+                }
+                return;
+            }
+
             let mut el_type = None;
-            let label = node
+            let raw_label = node
                 .props
                 .get("data")
                 .or_else(|| node.props.get("label"))
@@ -1038,17 +1187,24 @@ pub fn parse_dart_to_canvas_data(source_code: &str) -> CanvasSyncResult {
                 .or_else(|| node.props.get("childText"))
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
+            let label = raw_label.map(|s| resolve_prop_text(&s, prop_values).unwrap_or(s));
+
+            let style_raw = node.props.get("style").and_then(|v| v.as_str()).unwrap_or("");
 
             let mut font_size = node
                 .props
                 .get("fontSize")
-                .and_then(|v| v.as_str().and_then(|s| s.parse::<f64>().ok()).or_else(|| v.as_f64()));
+                .and_then(|v| v.as_str().and_then(|s| s.parse::<f64>().ok()).or_else(|| v.as_f64()))
+                .or_else(|| parse_dart_style_number(style_raw, "fontSize"));
 
-            let color = node
+            let mut color = node
                 .props
                 .get("color")
                 .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
+                .and_then(|s| parse_dart_color_hex(s).or_else(|| Some(s.to_string())));
+
+            let mut text_color: Option<String> = None;
+            let mut border_radius: Option<f64> = parse_dart_border_radius(style_raw);
 
             match node.r#type.as_str() {
                 "Text" => {
@@ -1056,10 +1212,16 @@ pub fn parse_dart_to_canvas_data(source_code: &str) -> CanvasSyncResult {
                         && label.as_deref() != Some("No real AST found yet")
                     {
                         el_type = Some("text");
+                        if let Some(c) = parse_dart_color_hex(style_raw) {
+                            text_color = Some(c);
+                        }
                     }
                 }
                 "ElevatedButton" | "FilledButton" | "OutlinedButton" | "TextButton" | "IconButton" => {
                     el_type = Some("button");
+                    if color.is_none() {
+                        color = parse_dart_color_hex(style_raw);
+                    }
                 }
                 "TextField" | "TextFormField" => {
                     el_type = Some("input");
@@ -1075,6 +1237,14 @@ pub fn parse_dart_to_canvas_data(source_code: &str) -> CanvasSyncResult {
                 }
                 "Container" => {
                     el_type = Some("container");
+                    if border_radius.is_none() {
+                        if let Some(dec) = node.props.get("decoration").and_then(|v| v.as_str()) {
+                            border_radius = parse_dart_border_radius(dec);
+                            if color.is_none() {
+                                color = parse_dart_color_hex(dec);
+                            }
+                        }
+                    }
                 }
                 "Image" => {
                     el_type = Some("image");
@@ -1096,17 +1266,18 @@ pub fn parse_dart_to_canvas_data(source_code: &str) -> CanvasSyncResult {
                 } else {
                     format!("elem-{}", count + 1)
                 };
+                let (x, y) = pos_override.unwrap_or((24.0, 24.0 + (count as f64) * 60.0));
                 elements.push(CanvasWidgetElement {
                     id: clean_id,
                     r#type: t.to_string(),
                     name: node.r#type.clone(),
                     label,
-                    x: 24.0,
-                    y: 24.0 + (count as f64) * 60.0,
+                    x,
+                    y,
                     color,
-                    text_color: None,
+                    text_color,
                     font_size,
-                    border_radius: None,
+                    border_radius,
                 });
             }
 
@@ -1118,13 +1289,13 @@ pub fn parse_dart_to_canvas_data(source_code: &str) -> CanvasSyncResult {
             if !is_leaf {
                 if let Some(children) = &node.children {
                     for child in children {
-                        collect_elements(child, elements);
+                        collect_elements(child, elements, pos_override, prop_values);
                     }
                 }
             }
         }
 
-        collect_elements(&root, &mut elements);
+        collect_elements(&root, &mut elements, None, prop_values);
     }
 
     CanvasSyncResult {
@@ -1320,23 +1491,33 @@ pub fn pascal_to_title(pascal: &str) -> String {
     result
 }
 
-fn is_screen_file_candidate(path: &std::path::Path) -> bool {
-    let path_str = path.to_string_lossy();
-    if !path_str.ends_with(".dart") {
+fn normalize_path_lower(path: &std::path::Path) -> String {
+    path.to_string_lossy().replace('\\', "/").to_lowercase()
+}
+
+fn is_component_folder(normalized_lower: &str) -> bool {
+    const COMPONENT_SEGMENTS: [&str; 4] = [
+        "/widgets/", "/widget/", "/components/", "/component/",
+    ];
+    COMPONENT_SEGMENTS.iter().any(|seg| normalized_lower.contains(seg))
+}
+
+fn is_screen_file_candidate(rel_path: &std::path::Path) -> bool {
+    let lower = normalize_path_lower(rel_path);
+    if !lower.ends_with(".dart") {
         return false;
     }
 
-    let lower = path_str.to_lowercase();
+    // Wrap with leading `/` so top-level `test/` or `theme/` inside the project matches too
+    let wrapped = format!("/{}", lower.trim_start_matches('/'));
     let ignored_segments = [
         "/theme/", "/styles/", "/colors/", "/constants/", "/models/", "/model/",
         "/services/", "/service/", "/bloc/", "/blocs/", "/cubit/", "/cubits/",
         "/providers/", "/provider/", "/utils/", "/util/", "/helpers/", "/generated/",
         "/.dart_tool/", "/test/", "/build/",
     ];
-    for seg in &ignored_segments {
-        if lower.contains(seg) {
-            return false;
-        }
+    if ignored_segments.iter().any(|seg| wrapped.contains(seg)) {
+        return false;
     }
 
     let ignored_suffixes = [
@@ -1344,18 +1525,355 @@ fn is_screen_file_candidate(path: &std::path::Path) -> bool {
         "_styles.dart", "_constants.dart", "_model.dart", "_service.dart",
         "_bloc.dart", "_cubit.dart", "_provider.dart", "_state.dart", "_event.dart",
     ];
-    for suf in &ignored_suffixes {
-        if lower.ends_with(suf) {
-            return false;
-        }
+    if ignored_suffixes.iter().any(|suf| lower.ends_with(suf)) {
+        return false;
     }
 
     true
 }
 
+#[derive(Debug, Clone)]
+struct ParsedWidgetClass {
+    name: String,
+    widget_type: String,
+    has_scaffold: bool,
+    start_byte: usize,
+    end_byte: usize,
+    state_range: Option<(usize, usize)>,
+}
+
+const SUPPORTED_WIDGET_BASES: [&str; 8] = [
+    "StatelessWidget",
+    "StatefulWidget",
+    "ConsumerWidget",
+    "ConsumerStatefulWidget",
+    "HookWidget",
+    "HookConsumerWidget",
+    "GetView",
+    "GetWidget",
+];
+
+fn extract_creation_name<'a>(node: Node<'a>, source: &'a [u8]) -> Option<&'a str> {
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        let k = child.kind();
+        if k == "identifier" || k == "type_identifier" {
+            if let Ok(text) = child.utf8_text(source) {
+                return Some(text);
+            }
+        } else if k == "type" || k == "type_not_void" || k == "type_name" || k == "scoped_identifier" {
+            if let Some(nested) = extract_creation_name(child, source) {
+                return Some(nested);
+            }
+        }
+    }
+    None
+}
+
+fn subtree_has_screen_root(node: Node, source: &[u8]) -> bool {
+    let kind = node.kind();
+    if kind == "creation_expression"
+        || kind == "invocation_expression"
+        || kind == "call_expression"
+        || kind == "const_object_expression"
+    {
+        if let Some(name) = extract_creation_name(node, source) {
+            if matches!(name, "Scaffold" | "CupertinoPageScaffold" | "GetScaffold") {
+                return true;
+            }
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if subtree_has_screen_root(child, source) {
+            return true;
+        }
+    }
+    false
+}
+
+fn collect_pascal_widget_refs(node: Node, source: &[u8], out: &mut HashSet<String>) {
+    let kind = node.kind();
+    if kind == "creation_expression"
+        || kind == "invocation_expression"
+        || kind == "call_expression"
+        || kind == "const_object_expression"
+    {
+        if let Some(name) = extract_creation_name(node, source) {
+            let is_non_screen = matches!(
+                name,
+                "MaterialApp"
+                    | "CupertinoApp"
+                    | "GoRouter"
+                    | "GoRoute"
+                    | "MaterialPageRoute"
+                    | "CupertinoPageRoute"
+                    | "ThemeData"
+                    | "ColorScheme"
+                    | "Key"
+                    | "Duration"
+                    | "Scaffold"
+                    | "Text"
+                    | "Container"
+                    | "Center"
+                    | "SizedBox"
+            );
+            if !is_non_screen && name.chars().next().map_or(false, |c| c.is_uppercase()) {
+                out.insert(name.to_string());
+            }
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_pascal_widget_refs(child, source, out);
+    }
+}
+
+fn collect_routed_widgets_from_ast(node: Node, source: &[u8], out: &mut HashSet<String>) {
+    let kind = node.kind();
+    if kind == "creation_expression"
+        || kind == "invocation_expression"
+        || kind == "call_expression"
+        || kind == "const_object_expression"
+    {
+        if let Some(name) = extract_creation_name(node, source) {
+            if matches!(
+                name,
+                "MaterialApp" | "CupertinoApp" | "GoRoute" | "MaterialPageRoute" | "CupertinoPageRoute"
+            ) {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "arguments" {
+                        let mut arg_cursor = child.walk();
+                        for arg in child.children(&mut arg_cursor) {
+                            if arg.kind() == "named_argument" {
+                                let mut label = String::new();
+                                let mut val_opt = None;
+                                let mut inner_cursor = arg.walk();
+                                for inner in arg.children(&mut inner_cursor) {
+                                    if inner.kind() == "label" {
+                                        if let Ok(l) = inner.utf8_text(source) {
+                                            label = l.trim_matches(|c| c == ':' || c == ' ').to_string();
+                                        }
+                                    } else {
+                                        val_opt = Some(inner);
+                                    }
+                                }
+                                if matches!(label.as_str(), "home" | "routes" | "builder" | "pageBuilder") {
+                                    if let Some(val_node) = val_opt {
+                                        collect_pascal_widget_refs(val_node, source, out);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_routed_widgets_from_ast(child, source, out);
+    }
+}
+
+fn extract_base_and_state_target(super_text: &str) -> (Option<&'static str>, Option<String>) {
+    // Strip leading `extends ` and inspect the primary superclass token
+    let cleaned = super_text.trim().trim_start_matches("extends").trim();
+    let base_name = cleaned.split('<').next().unwrap_or("").trim().split_whitespace().next().unwrap_or("");
+
+    for &supported in &SUPPORTED_WIDGET_BASES {
+        if base_name == supported {
+            return (Some(supported), None);
+        }
+    }
+
+    if matches!(base_name, "State" | "ConsumerState" | "HookConsumerState") {
+        if let (Some(lt), Some(gt)) = (cleaned.find('<'), cleaned.rfind('>')) {
+            if gt > lt + 1 {
+                let target = cleaned[lt + 1..gt].trim().to_string();
+                return (None, Some(target));
+            }
+        }
+    }
+
+    (None, None)
+}
+
+fn collect_widget_constructor_props_from_ast(
+    node: Node,
+    source: &[u8],
+    out: &mut HashMap<String, HashMap<String, String>>,
+) {
+    let kind = node.kind();
+    if kind == "creation_expression"
+        || kind == "invocation_expression"
+        || kind == "call_expression"
+        || kind == "const_object_expression"
+    {
+        if let Some(name) = extract_creation_name(node, source) {
+            if name.chars().next().map_or(false, |c| c.is_uppercase()) {
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    if child.kind() == "arguments" {
+                        let mut arg_cursor = child.walk();
+                        for arg in child.children(&mut arg_cursor) {
+                            if arg.kind() == "named_argument" {
+                                let mut label = String::new();
+                                let mut val_opt = None;
+                                let mut inner_cursor = arg.walk();
+                                for inner in arg.children(&mut inner_cursor) {
+                                    if inner.kind() == "label" {
+                                        if let Ok(l) = inner.utf8_text(source) {
+                                            label = l.trim_matches(|c| c == ':' || c == ' ').to_string();
+                                        }
+                                    } else {
+                                        val_opt = Some(inner);
+                                    }
+                                }
+                                if !label.is_empty() {
+                                    if let Some(val_node) = val_opt {
+                                        if val_node.kind() == "string_literal" {
+                                            if let Ok(raw) = val_node.utf8_text(source) {
+                                                let clean = raw.trim_matches(|c| c == '\'' || c == '"').to_string();
+                                                out.entry(name.to_string())
+                                                    .or_default()
+                                                    .insert(label, clean);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_widget_constructor_props_from_ast(child, source, out);
+    }
+}
+
+fn analyze_file_ast(
+    source_code: &str,
+) -> (Vec<ParsedWidgetClass>, HashSet<String>, HashMap<String, HashMap<String, String>>) {
+    let mut widget_classes: Vec<ParsedWidgetClass> = Vec::new();
+    let mut state_scaffolds: HashMap<String, (bool, usize, usize)> = HashMap::new();
+    let mut routed_widgets: HashSet<String> = HashSet::new();
+    let mut constructor_props: HashMap<String, HashMap<String, String>> = HashMap::new();
+
+    let mut parser = Parser::new();
+    let language = tree_sitter_dart::LANGUAGE;
+    if parser.set_language(&language.into()).is_err() {
+        return (widget_classes, routed_widgets, constructor_props);
+    }
+    let Some(tree) = parser.parse(source_code, None) else {
+        return (widget_classes, routed_widgets, constructor_props);
+    };
+
+    let root = tree.root_node();
+    let source = source_code.as_bytes();
+
+    collect_routed_widgets_from_ast(root, source, &mut routed_widgets);
+    collect_widget_constructor_props_from_ast(root, source, &mut constructor_props);
+
+    fn collect_classes_recursive(
+        node: Node,
+        source: &[u8],
+        widget_classes: &mut Vec<ParsedWidgetClass>,
+        state_scaffolds: &mut HashMap<String, (bool, usize, usize)>,
+    ) {
+        if node.kind() == "class_definition" || node.kind() == "class_declaration" {
+            let mut class_name = String::new();
+            let mut super_text = String::new();
+            let mut has_scaffold = false;
+
+            let mut c_cursor = node.walk();
+            for child in node.children(&mut c_cursor) {
+                match child.kind() {
+                    "identifier" if class_name.is_empty() => {
+                        if let Ok(t) = child.utf8_text(source) {
+                            class_name = t.to_string();
+                        }
+                    }
+                    "superclass" => {
+                        if let Ok(t) = child.utf8_text(source) {
+                            super_text = t.to_string();
+                        }
+                    }
+                    "class_body" => {
+                        has_scaffold = subtree_has_screen_root(child, source);
+                    }
+                    _ => {}
+                }
+            }
+
+            if !class_name.is_empty() && !super_text.is_empty() {
+                let (widget_base_opt, state_target_opt) = extract_base_and_state_target(&super_text);
+                if let Some(widget_base) = widget_base_opt {
+                    if !class_name.starts_with('_') {
+                        widget_classes.push(ParsedWidgetClass {
+                            name: class_name,
+                            widget_type: widget_base.to_string(),
+                            has_scaffold,
+                            start_byte: node.start_byte(),
+                            end_byte: node.end_byte(),
+                            state_range: None,
+                        });
+                    }
+                } else if let Some(target) = state_target_opt {
+                    state_scaffolds.insert(target, (has_scaffold, node.start_byte(), node.end_byte()));
+                }
+            }
+            return;
+        }
+
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            collect_classes_recursive(child, source, widget_classes, state_scaffolds);
+        }
+    }
+
+    collect_classes_recursive(root, source, &mut widget_classes, &mut state_scaffolds);
+
+    for wc in &mut widget_classes {
+        if let Some(&(state_has_scaffold, s_start, s_end)) = state_scaffolds.get(&wc.name) {
+            if state_has_scaffold {
+                wc.has_scaffold = true;
+            }
+            wc.state_range = Some((s_start, s_end));
+        }
+    }
+
+    (widget_classes, routed_widgets, constructor_props)
+}
+
+fn expand_tilde_path(raw: &str) -> std::path::PathBuf {
+    if raw == "~" || raw.starts_with("~/") || raw.starts_with("~\\") {
+        if let Some(home) = std::env::var("HOME")
+            .ok()
+            .or_else(|| std::env::var("USERPROFILE").ok())
+        {
+            let rest = raw[1..].trim_start_matches(['/', '\\']);
+            return if rest.is_empty() {
+                std::path::PathBuf::from(home)
+            } else {
+                std::path::PathBuf::from(home).join(rest)
+            };
+        }
+    }
+    std::path::PathBuf::from(raw)
+}
+
 /// Scans a Flutter project's `lib` directory and detects all UI screens and their visual elements.
 pub fn scan_project_screens(project_path: &str) -> Result<Vec<DetectedScreen>, String> {
-    let root = std::path::Path::new(project_path);
+    let root = expand_tilde_path(project_path);
     if !root.exists() {
         return Err(format!("Project path does not exist: {}", project_path));
     }
@@ -1363,11 +1881,16 @@ pub fn scan_project_screens(project_path: &str) -> Result<Vec<DetectedScreen>, S
     let lib_dir = root.join("lib");
     let scan_dir = if lib_dir.is_dir() { lib_dir } else { root.to_path_buf() };
 
-    let mut screens = Vec::new();
+    struct ScannedFile {
+        path: std::path::PathBuf,
+        norm_lower: String,
+        content: String,
+        classes: Vec<ParsedWidgetClass>,
+    }
 
-    let class_regex = regex::Regex::new(
-        r"class\s+([A-Za-z0-9_]+)\s+extends\s+(StatelessWidget|StatefulWidget|ConsumerWidget|HookWidget)"
-    ).map_err(|e| e.to_string())?;
+    let mut scanned_files: Vec<ScannedFile> = Vec::new();
+    let mut routed_widgets: HashSet<String> = HashSet::new();
+    let mut all_constructor_props: HashMap<String, HashMap<String, String>> = HashMap::new();
 
     let walker = ignore::WalkBuilder::new(&scan_dir)
         .standard_filters(true)
@@ -1376,72 +1899,94 @@ pub fn scan_project_screens(project_path: &str) -> Result<Vec<DetectedScreen>, S
 
     for entry in walker.flatten() {
         let path = entry.path();
-        if path.is_file() && is_screen_file_candidate(path) {
-            if let Ok(content) = fs::read_to_string(path) {
-                // Must have a build method or Scaffold to be considered a visual screen
-                if !content.contains("Widget build") && !content.contains("Scaffold") {
-                    continue;
-                }
-
-                let mut matches: Vec<(String, String)> = Vec::new();
-                for caps in class_regex.captures_iter(&content) {
-                    if let (Some(c), Some(w)) = (caps.get(1), caps.get(2)) {
-                        let name = c.as_str().to_string();
-                        let widget = w.as_str().to_string();
-                        if !name.is_empty() && !name.starts_with('_') {
-                            matches.push((name, widget));
-                        }
+        if path.is_file() {
+            let rel_to_root = path.strip_prefix(&root).unwrap_or(path);
+            if is_screen_file_candidate(rel_to_root) {
+                if let Ok(content) = fs::read_to_string(path) {
+                    let (classes, file_routed, file_props) = analyze_file_ast(&content);
+                    routed_widgets.extend(file_routed);
+                    for (widget_name, props_map) in file_props {
+                        all_constructor_props
+                            .entry(widget_name)
+                            .or_default()
+                            .extend(props_map);
+                    }
+                    if !classes.is_empty() {
+                        scanned_files.push(ScannedFile {
+                            path: path.to_path_buf(),
+                            norm_lower: format!("/{}", normalize_path_lower(rel_to_root).trim_start_matches('/')),
+                            content,
+                            classes,
+                        });
                     }
                 }
-
-                if matches.is_empty() {
-                    continue;
-                }
-
-                let chosen = if matches.len() == 1 {
-                    &matches[0]
-                } else {
-                    matches
-                        .iter()
-                        .find(|(name, _)| {
-                            name.ends_with("Screen") || name.ends_with("Page") || name.ends_with("View")
-                        })
-                        .or_else(|| matches.iter().find(|(name, _)| name != "MyApp"))
-                        .unwrap_or(&matches[0])
-                };
-
-                let class_name = chosen.0.clone();
-                let widget_type = chosen.1.clone();
-
-                let file_name = path
-                    .file_name()
-                    .map_or_else(|| "screen.dart".to_string(), |n| n.to_string_lossy().to_string());
-
-                let rel_path = path
-                    .strip_prefix(root)
-                    .unwrap_or(path)
-                    .to_string_lossy()
-                    .to_string();
-
-                let abs_path = path.to_string_lossy().to_string();
-                let name = pascal_to_title(&class_name);
-                let id = format!("screen-{}", rel_path.replace(['/', '\\', '.'], "-"));
-
-                let sync_data = parse_dart_to_canvas_data(&content);
-
-                screens.push(DetectedScreen {
-                    id,
-                    name,
-                    class_name,
-                    file_name,
-                    file_path: abs_path,
-                    relative_path: rel_path,
-                    widget_type,
-                    screen_layout: sync_data.screen_layout,
-                    layout_flow: sync_data.layout_flow,
-                    elements: sync_data.elements,
-                });
             }
+        }
+    }
+
+    let mut screens = Vec::new();
+
+    for file in scanned_files {
+        let in_component_dir = is_component_folder(&file.norm_lower);
+        let qualifying: Vec<&ParsedWidgetClass> = file
+            .classes
+            .iter()
+            .filter(|wc| {
+                let is_routed = routed_widgets.contains(&wc.name);
+                is_routed || (wc.has_scaffold && !in_component_dir)
+            })
+            .collect();
+
+        if qualifying.is_empty() {
+            continue;
+        }
+
+        let file_name = file
+            .path
+            .file_name()
+            .map_or_else(|| "screen.dart".to_string(), |n| n.to_string_lossy().to_string());
+
+        let rel_path = file
+            .path
+            .strip_prefix(&root)
+            .unwrap_or(&file.path)
+            .to_string_lossy()
+            .to_string();
+
+        let abs_path = file.path.to_string_lossy().to_string();
+        let base_id = format!("screen-{}", rel_path.replace(['/', '\\', '.'], "-"));
+        let multi = qualifying.len() > 1;
+
+        for wc in qualifying {
+            let mut slice = String::new();
+            if let Some((s_start, s_end)) = wc.state_range {
+                slice.push_str(&file.content[s_start..s_end]);
+                slice.push('\n');
+            }
+            slice.push_str(&file.content[wc.start_byte..wc.end_byte]);
+            let sync_data = parse_dart_to_canvas_data_with_props(
+                &slice,
+                all_constructor_props.get(&wc.name),
+            );
+
+            let id = if multi {
+                format!("{}-{}", base_id, wc.name.to_lowercase())
+            } else {
+                base_id.clone()
+            };
+
+            screens.push(DetectedScreen {
+                id,
+                name: pascal_to_title(&wc.name),
+                class_name: wc.name.clone(),
+                file_name: file_name.clone(),
+                file_path: abs_path.clone(),
+                relative_path: rel_path.clone(),
+                widget_type: wc.widget_type.clone(),
+                screen_layout: sync_data.screen_layout,
+                layout_flow: sync_data.layout_flow,
+                elements: sync_data.elements,
+            });
         }
     }
 
@@ -1667,6 +2212,312 @@ class AppColors {
         assert_eq!(screens[1].elements.len(), 2);
 
         let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_scan_excludes_reusable_components_and_myapp() {
+        let temp_dir = std::env::temp_dir().join(format!("vela_test_components_{}", uuid::Uuid::new_v4()));
+        let lib_dir = temp_dir.join("lib");
+        let widgets_dir = lib_dir.join("widgets");
+        let screens_dir = lib_dir.join("screens");
+        fs::create_dir_all(&widgets_dir).unwrap();
+        fs::create_dir_all(&screens_dir).unwrap();
+
+        fs::write(
+            lib_dir.join("main.dart"),
+            r#"
+import 'package:flutter/material.dart';
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(home: HomeScreen());
+  }
+}
+"#,
+        )
+        .unwrap();
+
+        fs::write(
+            widgets_dir.join("custom_button.dart"),
+            r#"
+import 'package:flutter/material.dart';
+class CustomButton extends StatelessWidget {
+  const CustomButton({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(onPressed: () {}, child: const Text('Click'));
+  }
+}
+"#,
+        )
+        .unwrap();
+
+        fs::write(
+            screens_dir.join("home_screen.dart"),
+            r#"
+import 'package:flutter/material.dart';
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(body: Center(child: Text('Home')));
+  }
+}
+"#,
+        )
+        .unwrap();
+
+        let screens = scan_project_screens(temp_dir.to_str().unwrap()).unwrap();
+        assert_eq!(screens.len(), 1);
+        assert_eq!(screens[0].class_name, "HomeScreen");
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_scan_riverpod_getx_multi_screen_and_gorouter() {
+        let temp_dir = std::env::temp_dir().join(format!("vela_test_advanced_{}", uuid::Uuid::new_v4()));
+        let lib_dir = temp_dir.join("lib");
+        let screens_dir = lib_dir.join("screens");
+        fs::create_dir_all(&screens_dir).unwrap();
+
+        // Router references DetailScreen even though DetailScreen wraps a custom body without direct Scaffold
+        fs::write(
+            lib_dir.join("router.dart"),
+            r#"
+import 'package:go_router/go_router.dart';
+final router = GoRouter(
+  routes: [
+    GoRoute(
+      path: '/detail',
+      builder: (context, state) => const DetailScreen(),
+    ),
+  ],
+);
+"#,
+        )
+        .unwrap();
+
+        fs::write(
+            screens_dir.join("detail_screen.dart"),
+            r#"
+import 'package:flutter/material.dart';
+class DetailScreen extends StatelessWidget {
+  const DetailScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: Text('Detail Wrapper'));
+  }
+}
+"#,
+        )
+        .unwrap();
+
+        // ConsumerStatefulWidget with Scaffold in ConsumerState
+        fs::write(
+            screens_dir.join("settings_screen.dart"),
+            r#"
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+class SettingsScreen extends ConsumerStatefulWidget {
+  const SettingsScreen({super.key});
+  @override
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(body: Text('Settings'));
+  }
+}
+"#,
+        )
+        .unwrap();
+
+        // Multiple screens in a single file + GetView
+        fs::write(
+            screens_dir.join("auth_screens.dart"),
+            r#"
+import 'package:flutter/material.dart';
+class LoginScreen extends StatelessWidget {
+  const LoginScreen({super.key});
+  @override
+  Widget build(BuildContext context) => const Scaffold(body: Text('Login'));
+}
+class RegisterScreen extends GetView<dynamic> {
+  const RegisterScreen({super.key});
+  @override
+  Widget build(BuildContext context) => const Scaffold(body: Text('Register'));
+}
+"#,
+        )
+        .unwrap();
+
+        let screens = scan_project_screens(temp_dir.to_str().unwrap()).unwrap();
+        let names: Vec<&str> = screens.iter().map(|s| s.class_name.as_str()).collect();
+        assert!(names.contains(&"DetailScreen"), "Expected DetailScreen in {:?}", names);
+        assert!(names.contains(&"SettingsScreen"), "Expected SettingsScreen in {:?}", names);
+        assert!(names.contains(&"LoginScreen"), "Expected LoginScreen in {:?}", names);
+        assert!(names.contains(&"RegisterScreen"), "Expected RegisterScreen in {:?}", names);
+        assert_eq!(screens.len(), 4);
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_scan_handles_dart3_dot_shorthand_before_screen_class() {
+        let temp_dir = std::env::temp_dir().join(format!("vela_test_dot_{}", uuid::Uuid::new_v4()));
+        let lib_dir = temp_dir.join("lib");
+        fs::create_dir_all(&lib_dir).unwrap();
+
+        fs::write(
+            lib_dir.join("main.dart"),
+            r#"
+import 'package:flutter/material.dart';
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      theme: ThemeData(
+        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+      ),
+      home: const MyHomePage(title: 'Demo'),
+    );
+  }
+}
+
+class MyHomePage extends StatefulWidget {
+  const MyHomePage({super.key, required this.title});
+  final String title;
+  @override
+  State<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends State<MyHomePage> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.title)),
+      body: const Text('Hello'),
+    );
+  }
+}
+"#,
+        )
+        .unwrap();
+
+        let screens = scan_project_screens(temp_dir.to_str().unwrap()).unwrap();
+        assert_eq!(screens.len(), 1);
+        assert_eq!(screens[0].class_name, "MyHomePage");
+        assert!(!screens[0].elements.is_empty(), "Expected elements from _MyHomePageState, got 0");
+        let appbar = screens[0].elements.iter().find(|e| e.r#type == "appbar").unwrap();
+        assert_eq!(appbar.label.as_deref(), Some("Demo"));
+
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_scan_handles_project_inside_parent_test_folder() {
+        let temp_dir = std::env::temp_dir()
+            .join(format!("vela_test_parent_{}", uuid::Uuid::new_v4()))
+            .join("test")
+            .join("my_app");
+        let lib_dir = temp_dir.join("lib");
+        fs::create_dir_all(&lib_dir).unwrap();
+
+        fs::write(
+            lib_dir.join("main.dart"),
+            r#"
+import 'package:flutter/material.dart';
+class MyHomePage extends StatelessWidget {
+  const MyHomePage({super.key});
+  @override
+  Widget build(BuildContext context) => const Scaffold(body: Text('Ok'));
+}
+"#,
+        )
+        .unwrap();
+
+        let screens = scan_project_screens(temp_dir.to_str().unwrap()).unwrap();
+        assert_eq!(screens.len(), 1);
+        assert_eq!(screens[0].class_name, "MyHomePage");
+        assert!(!screens[0].elements.is_empty(), "Expected elements from _MyHomePageState, got 0");
+
+        let _ = fs::remove_dir_all(temp_dir.parent().unwrap().parent().unwrap());
+    }
+
+    #[test]
+    fn test_parse_positioned_colors_and_excludes_appbar_chrome() {
+        let code = r#"
+class MyHomePage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.title)),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Positioned(
+              left: 158.0,
+              top: 353.0,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0EA5E9),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                  ),
+                ),
+                onPressed: () {},
+                child: Text('Botón xddddd'),
+              ),
+            ),
+            Positioned(
+              left: 40.0,
+              top: 80.0,
+              child: Text(
+                'Título de Pantalla',
+                style: TextStyle(
+                  fontSize: 16.0,
+                  color: const Color(0xFF000000),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {},
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+"#;
+        let sync = parse_dart_to_canvas_data(code);
+        assert_eq!(sync.screen_layout, "stack");
+        assert_eq!(sync.elements.len(), 4);
+
+        assert_eq!(sync.elements[0].r#type, "appbar");
+        assert_eq!(sync.elements[0].name, "AppBar");
+        assert_eq!(sync.elements[0].label, None); // widget.title falls back to frame name
+
+        assert_eq!(sync.elements[1].name, "ElevatedButton");
+        assert_eq!(sync.elements[1].x, 158.0);
+        assert_eq!(sync.elements[1].y, 353.0);
+        assert_eq!(sync.elements[1].color.as_deref(), Some("#0EA5E9"));
+        assert_eq!(sync.elements[1].border_radius, Some(8.0));
+
+        assert_eq!(sync.elements[2].name, "Text");
+        assert_eq!(sync.elements[2].x, 40.0);
+        assert_eq!(sync.elements[2].y, 80.0);
+        assert_eq!(sync.elements[2].text_color.as_deref(), Some("#000000"));
+        assert_eq!(sync.elements[2].font_size, Some(16.0));
+
+        assert_eq!(sync.elements[3].r#type, "fab");
+        assert_eq!(sync.elements[3].name, "FloatingActionButton");
     }
 }
 
